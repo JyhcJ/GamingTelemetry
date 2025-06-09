@@ -1,0 +1,39 @@
+Package: vcpkg-cmake-config
+Version: 2024-05-23
+Architecture: x64-windows
+Multi-Arch: same
+Abi: a6bbbf37c4a838266139abf2b8c3d1e24aeddbf61eecad99c783a970cf807611
+Status: install ok installed
+
+Package: vcpkg-cmake
+Version: 2024-04-23
+Architecture: x64-windows
+Multi-Arch: same
+Abi: 377937e02d231e8e62f093ba0edd7848d535674283453168a97cf3a2c90b6158
+Status: install ok installed
+
+Package: rapidjson
+Version: 2025-02-26
+Depends: vcpkg-cmake, vcpkg-cmake-config
+Architecture: x64-windows
+Multi-Arch: same
+Abi: bb7daed1a7944ea7ccd6692e7b7a19f9536321dab222ee88a256ff71de6de5c3
+Description: A fast JSON parser/generator for C++ with both SAX/DOM style API <http://rapidjson.org/>
+Status: install ok installed
+
+Package: vcpkg-boost
+Version: 2025-03-29
+Depends: vcpkg-cmake, vcpkg-cmake-config
+Architecture: x64-windows
+Multi-Arch: same
+Abi: f641037f1ab8db8854b9f6b85168cfb2b035d4e9293a3ea28a97348ca8308f82
+Status: purge ok not-installed
+
+Package: boost-uninstall
+Version: 1.88.0
+Architecture: x64-windows
+Multi-Arch: same
+Abi: 231ec0b3fb0c4ddc682efe83a13f06451d982084fdb7500286d15bd899b75733
+Description: Internal vcpkg port used to uninstall Boost
+Status: purge ok not-installed
+
