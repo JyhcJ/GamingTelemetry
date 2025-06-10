@@ -49,10 +49,13 @@
 // 全局变量定义
 extern bool is_lol_game_running;
 extern bool is_lol_running;
+extern nlohmann::json g_infoBefore;
 
-extern std::string BEFORE_NUMS_COUNT;
-extern std::string BEFORE_REGION;
-extern std::string BEFORE_RANK;
+//extern std::string BEFORE_NUMS_COUNT;
+//extern std::string BEFORE_REGION;
+//extern std::string BEFORE_RANK;
+//extern std::string BEFORE_STATE;
+//extern std::string BEFORE_TYPE;
 
 int MULTIKILL;
 int DEATHS;
@@ -76,6 +79,7 @@ struct PostGameData {
 	std::string type;
 	std::string data;
 }pgd;
+
 void _sendHttp_LOL(PostGameData pgd);
 
 // 配置常量
@@ -83,6 +87,30 @@ const int POLL_INTERVAL = 1;
 //const std::wstring LCU_URL = L"https://127.0.0.1:2999/liveclientdata/eventdata";
 const std::wstring LCU_URL = L"https://127.0.0.1:2999/liveclientdata/allgamedata";
 const std::wstring NAME_URL = L"https://127.0.0.1:2999/liveclientdata/activeplayername";
+const std::map<std::wstring, std::wstring> HEADERS = {
+	/*	{ L"Content-Type", L"application/json" },
+		{ L"User-Agent", L"Mozilla/5.0" },
+		{ L"token", L"{{bToken}}" },*/
+
+		{   L"language",L"ZH_CN" },
+		{   L"merchantId",L"53" },
+		{   L"sec-ch-ua-platform",L"\"Windows\""                                                                                                    },
+		{   L"Referer",L"https://dev-asz.cjmofang.com/activity/activityManagement/createActivity/MODE_SIGN/0/add/0"                                 },
+		{   L"sec-ch-ua",L"\"Chromium\";v=\"136\", \"Google Chrome\";v=\"136\", \"Not.A/Brand\";v=\"99\""                                           },
+		{   L"sec-ch-ua-mobile",L"?0"                                                                                                               },
+		{   L"barId",L"98"                                                                                                                          },
+		{   L"Accept",L"application/json, text/plain, */*"                                                                                          },
+		{   L"Content-Type",L"application/json"                                                                                                     },
+		{   L"organizationType",L"\"BAR\""                                                                                                          },
+		{   L"token",L"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJSZW1vdGVJcCI6IiIsIkxvY2FsTG9naW4iOjAsIkNvbnRleHQiOnsidXNlcl9pZCI6MjQ3LCJ1c2VyX25hbWUiOiJ4eHgiLCJ1dWlkIjoiIiwicmlkIjoxOCwibWFudWZhY3R1cmVfaWQiOjUzLCJiYXJfaWQiOjk4LCJyb290X2lkIjowLCJvcmdhbml6YXRpb25fdHlwZSI6IiIsInBsYXRmb3JtIjoiYmFyY2xpZW50In0sImV4cCI6MTc0OTI4ODUzOX0.eN_CFdB9wCp97I0XqXe46T6wnJjlza4YxBMBtD8v4Xo"                                                                                                                  },
+		{   L"User-Agent",L"Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/136.0.0.0 Safari/537.36\r\n"        },
+		{   L"Accept-Encoding",L"gzip, deflate, br"                                                                                                 },
+		{   L"Connection",L"keep-alive"                                                                                                             },
+		{   L"Cache-Control",L"no-cache"                                                                                                            },
+		{   L"Host",L"127.0.0.1:8000"                                                                                                                }
+};
+
+
 // 获取当前时间字符串
 std::string getCurrentTimeString() {
 	auto now = std::chrono::system_clock::now();
@@ -297,6 +325,9 @@ void processEvents(const std::string& jsonData) {
 	const char* jsonDataCStr = jsonData.c_str();
 
 	rapidjson::Document data1;
+
+	nlohmann::json jsonbody = g_infoBefore;
+
 	data1.Parse(jsonDataCStr);
 
 	if (data1.HasMember("gameData"))
@@ -315,7 +346,7 @@ void processEvents(const std::string& jsonData) {
 		return;
 	}
 	//pgd.game_mode = data1["gameData"]["gameMode"].GetString();
-	pgd.team_size = "1";
+	//pgd.team_size = "1";
 	// 解析 JSON 字符串
 	/*if (doc.Parse(jsonDataCStr).HasParseError()) {
 		std::cerr << "JSON 解析错误！" << std::endl;
@@ -330,14 +361,14 @@ void processEvents(const std::string& jsonData) {
 		return;
 	}
 	//TODO 这个computer_no 要在barclient中查?
-	pgd.computer_no = "ttt";
+	//pgd.computer_no = "ttt";
 	//playerName = "啊大声道大s";
 	playerName = getPlayerName();
 	const rapidjson::Value& events = data["Events"];
 	time_t current_time = time(nullptr);
 
 	// TODO后面可以设置为常量
-	pgd.name = "LOL";
+	//pgd.name = "LOL";
 	for (rapidjson::SizeType i = 0; i < events.Size(); i++) {
 		const rapidjson::Value& event = events[i];
 
@@ -372,9 +403,9 @@ void processEvents(const std::string& jsonData) {
 				else if (MULTIKILL == 7) {
 					isCHAOSHEN = true;
 					//发送超神
-					pgd.eventID = std::to_string(event_id)+"_chaoshen";
-					pgd.type = "CHAO_SHEN_SHU";
-					_sendHttp_LOL(pgd);
+					jsonbody["event_id"] = std::to_string(event_id) + "_chaoshen";
+					jsonbody["type"] = "CHAO_SHEN_SHU";
+					_sendHttp_LOL(jsonbody);
 				}
 
 
@@ -401,26 +432,28 @@ void processEvents(const std::string& jsonData) {
 			int kill_count = 0;
 			if (event.HasMember("KillStreak") && event["KillStreak"].IsInt()) {
 				kill_count = event["KillStreak"].GetInt();
+				jsonbody["event_id"] = std::to_string(event["EventID"].GetInt());
 				MULTIKILL += kill_count;
 				switch (kill_count) {
 					/*	case 2:
 							pgd.type = "2_SHU";
 							break;*/
 				case 3:
-					pgd.type = "SAN_SHA_SHU";
+					jsonbody["type"] = "SAN_SHA_SHU";
 					break;
 				case 4:
-					pgd.type = "SI_SHA_SHU";
+					jsonbody["type"] = "SI_SHA_SHU";
 					break;
 				case 5:
-					pgd.type = "WU_SHA_SHU";
+					jsonbody["type"] = "WU_SHA_SHU";
 					break;
 
 				}
+				if (kill_count >= 3) {
+					_sendHttp_LOL(jsonbody);
+				}
 
-				//pgd.type = "SERIES_KILLS";
-				//pgd.type_count = std::to_string(kill_count);
-				_sendHttp_LOL(pgd);
+				
 			}
 
 		}
@@ -449,13 +482,10 @@ void processEvents(const std::string& jsonData) {
 				//	}
 				//}
 
-
 				continue;
 			}
-			pgd.type = "CUMULATIVE_KILLS";
+			//pgd.type = "CUMULATIVE_KILLS";
 			//data["allPlayers"]["riotIdGameName"].GetString();
-
-
 			for (rapidjson::SizeType i = 0; i < players.Size(); i++) {
 				const rapidjson::Value& player = players[i];
 				if (player["riotIdGameName"].GetString() != playerName) {
@@ -480,15 +510,9 @@ void processEvents(const std::string& jsonData) {
 	}
 }
 
-std::wstring Utf8ToWstring(const std::string& str) {
-	int size_needed = MultiByteToWideChar(CP_UTF8, 0, &str[0], (int)str.size(), NULL, 0);
-	std::wstring wstrTo(size_needed, 0);
-	MultiByteToWideChar(CP_UTF8, 0, &str[0], (int)str.size(), &wstrTo[0], size_needed);
-	return wstrTo;
-}
+
 
 void pollEvents() {
-	std::string playerName = "-1";
 
 	while (is_lol_game_running) {
 		std::string response = makeHttpsRequest(LCU_URL);
@@ -512,12 +536,13 @@ void pollEvents() {
 }
 
 void pollRankNum() {
-	//应该不用起新线程.
+	
 	Game_Before gb;
+
 	while (is_lol_running) {
 
-		//Game_Before gb;
-		gb.before_main();
+		//可以拆分...调高性能?
+		gb.before_main("update");
 
 		//std::cout << response << std::endl;
 		//TODO  以UTF-8對比
@@ -564,31 +589,6 @@ std::string getPlayerName() {
 // 向发送信息 (主要用于对局中实时信息)
 void _sendHttp_LOL(PostGameData pgd) {
 	HttpClient http;
-
-	// 1.请求头
-	std::map<std::wstring, std::wstring> headers = {
-		/*	{ L"Content-Type", L"application/json" },
-			{ L"User-Agent", L"Mozilla/5.0" },
-			{ L"token", L"{{bToken}}" },*/
-
-			{   L"language",L"ZH_CN" },
-			{   L"merchantId",L"53" },
-			{   L"sec-ch-ua-platform",L"\"Windows\""                                                                                                    },
-			{   L"Referer",L"https://dev-asz.cjmofang.com/activity/activityManagement/createActivity/MODE_SIGN/0/add/0"                                 },
-			{   L"sec-ch-ua",L"\"Chromium\";v=\"136\", \"Google Chrome\";v=\"136\", \"Not.A/Brand\";v=\"99\""                                           },
-			{   L"sec-ch-ua-mobile",L"?0"                                                                                                               },
-			{   L"barId",L"98"                                                                                                                          },
-			{   L"Accept",L"application/json, text/plain, */*"                                                                                          },
-			{   L"Content-Type",L"application/json"                                                                                                     },
-			{   L"organizationType",L"\"BAR\""                                                                                                          },
-			{   L"token",L"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJSZW1vdGVJcCI6IiIsIkxvY2FsTG9naW4iOjAsIkNvbnRleHQiOnsidXNlcl9pZCI6MjQ3LCJ1c2VyX25hbWUiOiJ4eHgiLCJ1dWlkIjoiIiwicmlkIjoxOCwibWFudWZhY3R1cmVfaWQiOjUzLCJiYXJfaWQiOjk4LCJyb290X2lkIjowLCJvcmdhbml6YXRpb25fdHlwZSI6IiIsInBsYXRmb3JtIjoiYmFyY2xpZW50In0sImV4cCI6MTc0OTI4ODUzOX0.eN_CFdB9wCp97I0XqXe46T6wnJjlza4YxBMBtD8v4Xo"                                                                                                                  },
-			{   L"User-Agent",L"Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/136.0.0.0 Safari/537.36\r\n"        },
-			{   L"Accept-Encoding",L"gzip, deflate, br"                                                                                                 },
-			{   L"Connection",L"keep-alive"                                                                                                             },
-			{   L"Cache-Control",L"no-cache"                                                                                                            },
-			{   L"Host",L"127.0.0.1:8000"                                                                                                                }
-	};
-
 	//json jsonBody = {
 	//{"computer_no", computer_no},
 	//{"name", name},
@@ -598,24 +598,6 @@ void _sendHttp_LOL(PostGameData pgd) {
 	//{"type_count", std::to_string(type_count)}  // 如果服务器期望是字符串
 	//};
 
-	std::map<std::string, std::string> teamSizeMap = {
-	  //{"匹配", "MATCH"},
-	  //{"单双排", "SINGLE_AND_DOUBLE"},
-	  //{"灵活组排", "FREE_GROUP"},
-	  //{"极地大乱斗", "SUPER_SMASH_BROTHERS"},
-	  //{"无限火力", "UNLIMIT_FIRE"},
-	  //{"极限闪击", "ULTIMATE_HIT"},
-	  //{"神木之门", "GOD_TREE"},
-	  //{"克隆模式", "CLONE_MODE"},
-	  //{"自定义模式", "CUSTOM_MODE"},
-	  //{"PRACTICETOOL", "MATCH"},
-	  {"1", "ONE"},
-	  {"2", "TWO"},
-	  {"3", "THREE"},
-	  {"4", "FOUR"},
-	  {"5", "OVER_FOUR"},
-	  {"其他", "OTHER"}
-	};
 
 	std::string jsonBody =
 		"{\n"
@@ -623,7 +605,7 @@ void _sendHttp_LOL(PostGameData pgd) {
 		"\"name\": \"" + pgd.name + "\",\n"
 		"\"game_mode\": \"" + "TODO" + "\",\n"
 		"\"user_game_rank\": \"" +  + "\",\n"
-		"\"team_size\": \"" + teamSizeMap[pgd.team_size] + "\",\n"
+		//"\"team_size\": \"" + teamSizeMap[pgd.team_size] + "\",\n"
 		"\"type\": \"" + pgd.type + "\",\n"
 		"\"eventID\": \"" + pgd.eventID + "\"\n"
 		"\"data\": \"" + pgd.data + "\"\n"
@@ -645,7 +627,7 @@ void _sendHttp_LOL(PostGameData pgd) {
 		std::string response = http.SendRequest(
 			L"https://dev-asz.cjmofang.com/api/client/PostGameData",
 			L"POST",
-			headers,
+			HEADERS,
 			jsonBody
 		);
 
@@ -656,89 +638,69 @@ void _sendHttp_LOL(PostGameData pgd) {
 		LOG_ERROR(e.what());
 	}
 }
+// 向发送信息 (主要用于客户端启动结束)
+void _sendHttp_LOL(std::string type,std::string data) {
+	HttpClient http;
+	nlohmann::json jsonBody;
+	jsonBody["type"] = type;
+	LOG_IMMEDIATE(jsonBody.dump(4));
+	try {
+		// 3. 发送POST请求
+		std::string response = http.SendRequest(
+			L"https://dev-asz.cjmofang.com/api/client/PostGameData",
+			L"POST",
+			HEADERS,
+			jsonBody.dump()
+		);
+
+		LOG_IMMEDIATE("Response: " + UTF8ToGBK(response));
+	}
+	catch (const std::exception& e) {
+		//std::cerr << "Error: " << e.what() << std::endl;
+		LOG_IMMEDIATE_ERROR(e.what());
+	}
+	catch (std::runtime_error& e) {
+		LOG_IMMEDIATE_ERROR("_sendHttp_LOL:::_sendHttp_LOL:::");
+		LOG_IMMEDIATE_ERROR(e.what());
+	}
+	catch (...) {  // 捕获其他所有异常
+		LOG_IMMEDIATE_ERROR("_sendHttp_LOL :::Unknown exception occurred");
+	}
+}
+
 // 向发送信息 (主要用于对局结束后)
-void _sendHttp_LOL(std::string type , std::string data) {
+void _sendHttp_LOL(nlohmann::json jsonBody) {
 	HttpClient http;
 
-	// 1.请求头
-	std::map<std::wstring, std::wstring> headers = {
-		/*	{ L"Content-Type", L"application/json" },
-			{ L"User-Agent", L"Mozilla/5.0" },
-			{ L"token", L"{{bToken}}" },*/
-
-			{   L"language",L"ZH_CN" },
-			{   L"merchantId",L"53" },
-			{   L"sec-ch-ua-platform",L"\"Windows\""                                                                                                    },
-			{   L"Referer",L"https://dev-asz.cjmofang.com/activity/activityManagement/createActivity/MODE_SIGN/0/add/0"                                 },
-			{   L"sec-ch-ua",L"\"Chromium\";v=\"136\", \"Google Chrome\";v=\"136\", \"Not.A/Brand\";v=\"99\""                                           },
-			{   L"sec-ch-ua-mobile",L"?0"                                                                                                               },
-			{   L"barId",L"98"                                                                                                                          },
-			{   L"Accept",L"application/json, text/plain, */*"                                                                                          },
-			{   L"Content-Type",L"application/json"                                                                                                     },
-			{   L"organizationType",L"\"BAR\""                                                                                                          },
-			{   L"token",L"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJSZW1vdGVJcCI6IiIsIkxvY2FsTG9naW4iOjAsIkNvbnRleHQiOnsidXNlcl9pZCI6MjQ3LCJ1c2VyX25hbWUiOiJ4eHgiLCJ1dWlkIjoiIiwicmlkIjoxOCwibWFudWZhY3R1cmVfaWQiOjUzLCJiYXJfaWQiOjk4LCJyb290X2lkIjowLCJvcmdhbml6YXRpb25fdHlwZSI6IiIsInBsYXRmb3JtIjoiYmFyY2xpZW50In0sImV4cCI6MTc0OTI4ODUzOX0.eN_CFdB9wCp97I0XqXe46T6wnJjlza4YxBMBtD8v4Xo"                                                                                                                  },
-			{   L"User-Agent",L"Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/136.0.0.0 Safari/537.36\r\n"        },
-			{   L"Accept-Encoding",L"gzip, deflate, br"                                                                                                 },
-			{   L"Connection",L"keep-alive"                                                                                                             },
-			{   L"Cache-Control",L"no-cache"                                                                                                            },
-			{   L"Host",L"127.0.0.1:8000"                                                                                                                }
-	};
-
-
-	std::map<std::string, std::string> teamSizeMap = {
-	  //{"匹配", "MATCH"},
-	  //{"单双排", "SINGLE_AND_DOUBLE"},
-	  //{"灵活组排", "FREE_GROUP"},
-	  //{"极地大乱斗", "SUPER_SMASH_BROTHERS"},
-	  //{"无限火力", "UNLIMIT_FIRE"},
-	  //{"极限闪击", "ULTIMATE_HIT"},
-	  //{"神木之门", "GOD_TREE"},
-	  //{"克隆模式", "CLONE_MODE"},
-	  //{"自定义模式", "CUSTOM_MODE"},
-	  //{"PRACTICETOOL", "MATCH"},
-	  {"1", "ONE"},
-	  {"2", "TWO"},
-	  {"3", "THREE"},
-	  {"3", "THREE"},
-	  {"4", "FOUR"},
-	  {"5", "OVER_FOUR"},
-	  {"其他", "OTHER"}
-	};
-
-	std::string jsonBody =
-		"{\n"
-		"\"computer_no\": \"" + pgd.computer_no + "\",\n"
-		"\"name\": \"" + pgd.name + "\",\n"
-		"\"game_mode\": \"" + "TODO" + "\",\n"
-		"\"user_game_rank\": \"" + +"\",\n"
-		"\"team_size\": \"" + teamSizeMap[pgd.team_size] + "\",\n"
-		"\"type\": \"" + type + "\",\n"
-		"\"eventID\": \"" + pgd.eventID + "\"\n"
-		"\"data\": \"" + data + "\"\n"
-		"}";
-	LOG_IMMEDIATE(jsonBody);
-
+	LOG_IMMEDIATE(jsonBody.dump(4));
 
 	try {
 		// 3. 发送POST请求
 		std::string response = http.SendRequest(
 			L"https://dev-asz.cjmofang.com/api/client/PostGameData",
 			L"POST",
-			headers,
-			jsonBody
+			HEADERS,
+			jsonBody.dump()
 		);
-
-		LOG_IMMEDIATE("Response: " + response);
+	
+		LOG_IMMEDIATE("Response: " + UTF8ToGBK(response));
 	}
 	catch (const std::exception& e) {
 		std::cerr << "Error: " << e.what() << std::endl;
-		LOG_ERROR(e.what());
+		LOG_IMMEDIATE_ERROR(e.what());
+	}
+	catch (std::runtime_error& e) {
+		LOG_IMMEDIATE_ERROR("_sendHttp_LOL:::_sendHttp_LOL:::");
+		LOG_IMMEDIATE_ERROR(e.what());
+	}
+	catch (...) {  // 捕获其他所有异常
+		LOG_IMMEDIATE_ERROR("_sendHttp_LOL :::Unknown exception occurred");
 	}
 }
 
-extern "C" __declspec(dllexport) const char* GetPlayerName() {
-	return playerName.c_str();
-}
+//extern "C" __declspec(dllexport) const char* GetPlayerName() {
+//	return playerName.c_str();
+//}
 
 // 测试连通
 extern "C" __declspec(dllexport) int Add(int a, int b) {

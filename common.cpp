@@ -13,6 +13,7 @@
 #include <cstdarg>
 #include <cwchar>   // vswprintf
 #include <string>
+
 void call_调试输出信息(const char* pszFormat, ...)
 {
 #ifdef _DEBUG
@@ -43,6 +44,7 @@ void DebugPrintf(const char* format, ...) {
 	// 输出到 DebugView
 	OutputDebugStringA(buffer);
 }
+
 void DebugPrintf(const wchar_t* format, ...) {
 	wchar_t buffer[1024];
 
@@ -68,5 +70,34 @@ std::string UTF8ToANSI(const std::string& utf8Str) {
 	std::string result(ansiStr);
 	delete[] wideStr;
 	delete[] ansiStr;
+	return result;
+}
+
+std::wstring Utf8ToWstring(const std::string& str) {
+	int size_needed = MultiByteToWideChar(CP_UTF8, 0, &str[0], (int)str.size(), NULL, 0);
+	std::wstring wstrTo(size_needed, 0);
+	MultiByteToWideChar(CP_UTF8, 0, &str[0], (int)str.size(), &wstrTo[0], size_needed);
+	return wstrTo;
+}
+
+std::string UTF8ToGBK(const std::string& strUTF8) {
+	// 1. UTF-8 → UTF-16 (宽字符)
+	int len = MultiByteToWideChar(CP_UTF8, 0, strUTF8.c_str(), -1, NULL, 0);
+	if (len <= 0) return "";
+	wchar_t* wstr = new wchar_t[len];
+	MultiByteToWideChar(CP_UTF8, 0, strUTF8.c_str(), -1, wstr, len);
+
+	// 2. UTF-16 → GBK
+	len = WideCharToMultiByte(CP_ACP, 0, wstr, -1, NULL, 0, NULL, NULL);
+	if (len <= 0) {
+		delete[] wstr;
+		return "";
+	}
+	char* str = new char[len];
+	WideCharToMultiByte(CP_ACP, 0, wstr, -1, str, len, NULL, NULL);
+
+	std::string result(str);
+	delete[] wstr;
+	delete[] str;
 	return result;
 }

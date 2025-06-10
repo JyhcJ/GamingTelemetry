@@ -24,7 +24,8 @@ public:
 		const std::wstring& method,               // "GET" 或 "POST"
 		const std::map<std::wstring, std::wstring>& headers,  // 请求头
 		const std::string& body = "",               // 请求体（POST用）
-		bool userPass = false
+		bool userPass = false,
+		const std::wstring&  addPath = L""
 	);
 
 private:

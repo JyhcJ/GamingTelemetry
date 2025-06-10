@@ -24,5 +24,6 @@ void tset01() {
 
 extern "C" __declspec(dllexport) void test00(int a, int b) {
     Game_Before gb;
-    gb.before_main();
+    gb.before_main("");
 }
+

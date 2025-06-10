@@ -19,7 +19,7 @@ HttpClient::~HttpClient() {
 	}
 }
 
-// 设置超时时间（单位：毫秒）
+// 设置超时时间（单位：毫秒） TODO后面要关闭...
 void HttpClient::SetTimeout(DWORD resolveTimeout, DWORD connectTimeout,
 	DWORD sendTimeout, DWORD receiveTimeout) {
 	m_resolveTimeout = resolveTimeout;
@@ -87,7 +87,8 @@ std::string HttpClient::SendRequest(
 	const std::wstring& method,
 	const std::map<std::wstring, std::wstring>& headers,
 	const std::string& body,
-	bool userPass
+	bool userPass,
+	const std::wstring& pathAdd
 ) {
 	HINTERNET hConnect = NULL;
 	HINTERNET hRequest = NULL;
@@ -100,7 +101,7 @@ std::string HttpClient::SendRequest(
 		if (!CrackUrl(url, scheme, host, path, port)) {
 			throw std::runtime_error("Failed to parse URL");
 		}
-
+		path = path + pathAdd;
 		// 2. 连接到服务器
 		hConnect = WinHttpConnect(m_hSession, host.c_str(), port, 0);
 		DWORD err = GetLastError();
@@ -120,15 +121,15 @@ std::string HttpClient::SendRequest(
 			(scheme == L"https") ? WINHTTP_FLAG_SECURE : 0
 		);
 
-		if (!WinHttpSetTimeouts(
-			hRequest,
-			m_resolveTimeout,  // DNS解析超时
-			m_connectTimeout,  // 连接超时
-			m_sendTimeout,     // 发送超时
-			m_receiveTimeout   // 接收超时
-		)) {
-			throw std::runtime_error("WinHttpSetTimeouts failed");
-		}
+		//if (!WinHttpSetTimeouts(
+		//	hRequest,
+		//	m_resolveTimeout,  // DNS解析超时
+		//	m_connectTimeout,  // 连接超时
+		//	m_sendTimeout,     // 发送超时
+		//	m_receiveTimeout   // 接收超时
+		//)) {
+		//	throw std::runtime_error("WinHttpSetTimeouts failed");
+		//}
 
 		if (!hRequest) {
 			throw std::runtime_error("WinHttpOpenRequest failed");

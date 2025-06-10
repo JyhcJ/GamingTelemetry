@@ -62,3 +62,21 @@ DOMINION - 统治战场(水晶之痕，已移除)
 TWISTED_TREELINE - 扭曲丛林3v3(已移除)
 
 KING_PORO - 魄罗王模式
+
+
+
+| 状态值                 | 描述               |
+| ------------------- | ---------------- |
+| `None`              | 无状态，客户端刚启动或未登录   |
+| `Lobby`             | 在大厅中（组队、准备中）     |
+| `Matchmaking`       | 匹配中（排位/匹配/极地大乱斗） |
+| `ReadyCheck`        | 匹配成功，等待接受        |
+| `ChampSelect`       | 选人阶段（包括BP）       |
+| `GameStart`         | 游戏即将启动（loading前） |
+| `Loading`           | 正在加载游戏           |
+| `InProgress`        | 游戏进行中（正在玩）       |
+| `Reconnect`         | 游戏掉线，客户端准备重连     |
+| `WaitingForStats`   | 游戏结束，等待统计结果      |
+| `PreEndOfGame`      | 客户端显示结算前过渡阶段     |
+| `EndOfGame`         | 游戏结算画面           |
+| `TerminatedInError` | 游戏被异常终止或崩溃       |

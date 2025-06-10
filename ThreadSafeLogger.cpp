@@ -36,7 +36,7 @@ void OutputDebugInfo(const char* pszFormat, ...)
 {
 #ifdef _DEBUG
 	// 定义固定前缀字符串
-	const char* prefix = "c ";
+	const char* prefix = "[调试信息] ";
 	char szbufFormat[0x1000];
 	char szbufFormat_Game[0x1100] = "";
 	// 将固定前缀拼接到 szbufFormat_Game
