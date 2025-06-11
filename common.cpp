@@ -13,6 +13,7 @@
 #include <cstdarg>
 #include <cwchar>   // vswprintf
 #include <string>
+#include "ThreadSafeLogger.h"
 
 void call_调试输出信息(const char* pszFormat, ...)
 {
@@ -100,4 +101,32 @@ std::string UTF8ToGBK(const std::string& strUTF8) {
 	delete[] wstr;
 	delete[] str;
 	return result;
+}
+
+std::string TCHARToString(const TCHAR* tcharStr) {
+#ifdef UNICODE
+	// 如果是 Unicode（TCHAR = wchar_t），需要转换
+	int size = WideCharToMultiByte(CP_UTF8, 0, tcharStr, -1, NULL, 0, NULL, NULL);
+	std::string str(size, 0);
+	WideCharToMultiByte(CP_UTF8, 0, tcharStr, -1, &str[0], size, NULL, NULL);
+	return str;
+#else
+	// 如果是多字节（TCHAR = char），直接赋值
+	return std::string(tcharStr);
+#endif
+}
+
+std::string gethostName() {
+	// 获取机器号,计算机名
+	TCHAR computerName[MAX_COMPUTERNAME_LENGTH + 1];
+	DWORD size = sizeof(computerName) / sizeof(computerName[0]);
+	std::string hostName = TCHARToString(computerName);
+	if (GetComputerName(computerName, &size)) {
+		LOG_IMMEDIATE("Computer Name: " + hostName);
+
+	}
+	else {
+		LOG_IMMEDIATE("Failed to get computer name. Error: " + GetLastError());
+	}
+	return  hostName;
 }

@@ -102,7 +102,7 @@ const std::map<std::wstring, std::wstring> HEADERS = {
 		{   L"Accept",L"application/json, text/plain, */*"                                                                                          },
 		{   L"Content-Type",L"application/json"                                                                                                     },
 		{   L"organizationType",L"\"BAR\""                                                                                                          },
-		{   L"token",L"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJSZW1vdGVJcCI6IiIsIkxvY2FsTG9naW4iOjAsIkNvbnRleHQiOnsidXNlcl9pZCI6MjQ3LCJ1c2VyX25hbWUiOiJ4eHgiLCJ1dWlkIjoiIiwicmlkIjoxOCwibWFudWZhY3R1cmVfaWQiOjUzLCJiYXJfaWQiOjk4LCJyb290X2lkIjowLCJvcmdhbml6YXRpb25fdHlwZSI6IiIsInBsYXRmb3JtIjoiYmFyY2xpZW50In0sImV4cCI6MTc0OTI4ODUzOX0.eN_CFdB9wCp97I0XqXe46T6wnJjlza4YxBMBtD8v4Xo"                                                                                                                  },
+		{   L"token",L"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJSZW1vdGVJcCI6IiIsIkxvY2FsTG9naW4iOjAsIkNvbnRleHQiOnsidXNlcl9pZCI6MjQ3LCJ1c2VyX25hbWUiOiJ4eHgiLCJ1dWlkIjoiIiwicmlkIjoxOCwibWFudWZhY3R1cmVfaWQiOjUzLCJiYXJfaWQiOjk4LCJyb290X2lkIjowLCJvcmdhbml6YXRpb25fdHlwZSI6IiIsInBsYXRmb3JtIjoiYmFyY2xpZW50In0sImV4cCI6MTc1MDQ2ODMwMH0.21sEbRTirJggWvWlOygMOczAQWs8vQd0hh0ZKJuNTbs"                                                                                                                  },
 		{   L"User-Agent",L"Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/136.0.0.0 Safari/537.36\r\n"        },
 		{   L"Accept-Encoding",L"gzip, deflate, br"                                                                                                 },
 		{   L"Connection",L"keep-alive"                                                                                                             },
@@ -447,7 +447,6 @@ void processEvents(const std::string& jsonData) {
 				case 5:
 					jsonbody["type"] = "WU_SHA_SHU";
 					break;
-
 				}
 				if (kill_count >= 3) {
 					_sendHttp_LOL(jsonbody);
@@ -657,12 +656,10 @@ void _sendHttp_LOL(std::string type,std::string data) {
 	}
 	catch (const std::exception& e) {
 		//std::cerr << "Error: " << e.what() << std::endl;
+		LOG_IMMEDIATE_ERROR("_sendHttp_LOL:::");
 		LOG_IMMEDIATE_ERROR(e.what());
 	}
-	catch (std::runtime_error& e) {
-		LOG_IMMEDIATE_ERROR("_sendHttp_LOL:::_sendHttp_LOL:::");
-		LOG_IMMEDIATE_ERROR(e.what());
-	}
+
 	catch (...) {  // 捕获其他所有异常
 		LOG_IMMEDIATE_ERROR("_sendHttp_LOL :::Unknown exception occurred");
 	}
@@ -686,11 +683,7 @@ void _sendHttp_LOL(nlohmann::json jsonBody) {
 		LOG_IMMEDIATE("Response: " + UTF8ToGBK(response));
 	}
 	catch (const std::exception& e) {
-		std::cerr << "Error: " << e.what() << std::endl;
-		LOG_IMMEDIATE_ERROR(e.what());
-	}
-	catch (std::runtime_error& e) {
-		LOG_IMMEDIATE_ERROR("_sendHttp_LOL:::_sendHttp_LOL:::");
+		LOG_IMMEDIATE_ERROR("_sendHttp_LOL:::");
 		LOG_IMMEDIATE_ERROR(e.what());
 	}
 	catch (...) {  // 捕获其他所有异常

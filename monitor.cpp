@@ -24,6 +24,7 @@ const int CHECK_INTERVAL_MS = 5000; // 检查间隔5秒
 std::chrono::system_clock::time_point lol_start_time;
 bool is_lol_running = false;
 bool is_lol_game_running = false;
+std::string g_hostName ;
 double total_lol_time = 0.0;
 
 // 检查指定进程是否在运行
@@ -69,6 +70,7 @@ std::string GetCurrentTimeString() {
 
 // 主监控函数(线程)
 void MonitorGameProcess() {
+	g_hostName = gethostName();
 	while (true) {
 		bool currently_running = IsProcessRunning(LOL_PROCESS_NAME);
 		bool currently_game_running = IsProcessRunning(LOL_GAME_PROCESS_NAME);
