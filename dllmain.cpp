@@ -20,6 +20,8 @@ BOOL APIENTRY DllMain(HMODULE hModule,
 		// 设置最低日志级别
 		ThreadSafeLogger::GetInstance().SetMinLogLevel(LogLevel::INFO);
 
+		
+	
 		break;
 	case DLL_THREAD_ATTACH:
 	case DLL_THREAD_DETACH:
