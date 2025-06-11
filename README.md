@@ -1,3 +1,4 @@
+<<<<<<< HEAD
  DLL依赖环境,release环境可放在同级目录
 ![](./img/QQ20250609-152721.png)
 
@@ -85,3 +86,6 @@ GameLolLoginReq {
   // 段位()
   string pos = 3;
 }
+=======
+# getInfo
+>>>>>>> e1015c65dce0a076b3ffb5934d060a04c1ee103b
