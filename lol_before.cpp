@@ -2,16 +2,19 @@
 #include "lol_before.h"
 #include "constant.h"
 #include "lol.h"
+#include <unordered_set>
 
 extern std::string g_hostName;
-extern bool is_lol_running ;
+extern bool is_lol_running;
 extern bool is_lol_game_running;
 nlohmann::json g_infoBefore;
-
+std::unordered_set<uint64_t> g_lobbySummonerIds;
 std::mutex g_mtx;
+std::mutex g_m;
 static std::map<size_t, size_t> HISTORY_GAMES;//gameid _ userid
 
 bool Game_Before::getParam() {
+	std::lock_guard<std::mutex> lock(g_m); // 自动加锁/解锁
 	std::string str = ExecuteCommandAsAdmin(L"wmic PROCESS WHERE name='LeagueClientUx.exe' GET commandline");
 	if (str.size() < 100)
 	{
@@ -26,10 +29,10 @@ bool Game_Before::getParam() {
 	if (rso_original_platform_id == "") {
 		rso_original_platform_id = extractParamValue(str, "--rso_platform_id=");
 	}
-
-
+	//std::cout << "auth_token: " << auth_token << std::endl;
+	//std::cout << "app_port: " << app_port << std::endl;
 	url = "https://riot:" + auth_token + "@127.0.0.1:" + app_port;
-
+	
 	return true;
 }
 
@@ -103,7 +106,7 @@ void Game_Before::getAndSendInfo(std::string sendType) {
 		if (summonerData.contains("accountId")) {
 			myAccountId = summonerData["accountId"];
 		}
-	
+
 		//myAccountId = summonerData["accountId"].get<uint64_t>();
 	}
 
@@ -112,17 +115,22 @@ void Game_Before::getAndSendInfo(std::string sendType) {
 
 	nlohmann::json lobbyData;
 	size_t teamSize = 0;
-	std::vector<uint64_t> lobbySummonerIds;
+
 	if (httpAuthSend("/lol-lobby/v2/lobby", lobbyData))
 	{
+		std::unordered_set<uint64_t> lobbySummonerIds;
+		//LOG_IMMEDIATE(lobbyData);
 		teamSize = lobbyData["members"].size();
 		//myAccountId = summonerData["accountId"].get<uint64_t>();
 
 		//0 2 3 4 5
-		if (teamSize > 1) {
+		if (teamSize >= 1) {
 			for (const auto& member : lobbyData["members"]) {
-				lobbySummonerIds.push_back(member["summonerId"].get<uint64_t>());
+				lobbySummonerIds.insert(member["summonerId"].get<uint64_t>());
 			}
+			g_mtx.lock();
+			g_lobbySummonerIds = lobbySummonerIds;
+			g_mtx.unlock();
 			std::cout << "Summoner IDs:" << std::endl;
 			for (uint64_t id : lobbySummonerIds) {
 				std::cout << "- " << id << std::endl;
@@ -162,63 +170,150 @@ void Game_Before::getAndSendInfo(std::string sendType) {
 
 
 	bool last_is_end = false;
-	if (httpAuthSend("/lol-match-history/v1/products/lol/current-summoner/matches", matchesData, "?begIndex=0&endIndex=0"))
-	{
-		matchAccountId_u64 = matchesData["accountId"].get<uint64_t>();
-		data["member"] = nlohmann::json::array();
+	//if (sendType == "END") {
+		//std::this_thread::sleep_for(std::chrono::seconds(5));
+		if (httpAuthSend("/lol-match-history/v1/products/lol/current-summoner/matches", matchesData, "?begIndex=0&endIndex=0"))
+		{
+			//LOG_IMMEDIATE(matchesData.dump());
+			matchAccountId_u64 = matchesData["accountId"].get<uint64_t>();
+			data["member"] = nlohmann::json::array();
 
-		//jsonBody
-		for (const auto& game : matchesData["games"]["games"]) {
-			matchGameId_u64 = game["gameId"];
-			if (HISTORY_GAMES[matchGameId_u64] == myAccountId && "GameComplete" == game["endOfGameResult"])
-			{
-				for (const auto& participantIdentitie : game["participantIdentities"]) {
-					nlohmann::json member;
-					uint64_t id;
-					id = participantIdentitie["player"]["summonerId"].get<uint64_t>();
-					member["id"] = std::to_string(id);
-					member["role"] = "other";
-					// 检查 participantId 是否匹配
-					if (id == matchAccountId_u64) {
-						participantId_u64 = participantIdentitie["participantId"].get<uint64_t>();
-						member["role"] = "self";
-						//continue;
-					}
-					bool isContains = (std::find(lobbySummonerIds.begin(), lobbySummonerIds.end(), member["id"]) != lobbySummonerIds.end());
-					if (isContains)
-					{
-						member["role"] = "team";
+			//jsonBody
+			for (const auto& game : matchesData["games"]["games"]) {
+				matchGameId_u64 = game["gameId"];
+				if (HISTORY_GAMES[matchGameId_u64] == myAccountId && "GameComplete" == game["endOfGameResult"])
+				{
+					for (const auto& participantIdentitie : game["participantIdentities"]) {
+						nlohmann::json member;
+						uint64_t id;
+						id = participantIdentitie["player"]["summonerId"].get<uint64_t>();
+						member["id"] = std::to_string(id);
+						member["role"] = "other";
+						//这里有问题 接口只能查询到自己的信息==========
+			/*			bool isContains = (std::find(lobbySummonerIds.begin(), lobbySummonerIds.end(), member["id"]) != lobbySummonerIds.end());
+						if (isContains)
+						{
+							member["role"] = "team";
+						}*/
+						//==========================================
+						// 检查 participantId 是否匹配
+						if (id == matchAccountId_u64) {
+							participantId_u64 = participantIdentitie["participantId"].get<uint64_t>();
+							member["role"] = "self";
+							data["member"].push_back(member);
+							//continue;
+						}
+						if (g_lobbySummonerIds.size() > 1)
+						{
+							for (uint64_t lobby : g_lobbySummonerIds) {
+								if (lobby == id) {
+									continue;
+								}
+								else {
+									member["id"] = std::to_string(lobby);
+									member["role"] = "team";
+									data["member"].push_back(member);
+								}
+							}
+							//g_lobbySummonerIds.clear();
+						}
+						
 					}
 
-					data["member"].push_back(member);
+
+					for (const auto& participant : game["participants"]) {
+						if (participant["participantId"] == participantId_u64) {
+							data["ren_tou_shu"] = participant["stats"]["kills"];
+							data["zhu_gong_shu"] = participant["stats"]["assists"];
+							// neutralMinionsKilled 字段 小兵+野怪.
+							data["bu_bing_shu"] = participant["stats"]["totalMinionsKilled"];
+							data["pai_yan_shu"] = participant["stats"]["wardsKilled"];
+							data["win"] = participant["stats"]["win"] == false ? 0 : 1;
+							//data["time"] = participant["stats"]["assists"];
+								//data["time"] = matchesData["games"]["games"]["gameDuration"];
+							break;
+						}
+					}
+					data["time"] = game["gameDuration"];
+					last_is_end = true;
+					g_mtx.lock();
+					//is_lol_running = true;
+					is_lol_game_running = false;
+					g_mtx.unlock();
+					
+				}
+				else {
+
 				}
 
-				for (const auto& participant : game["participants"]) {
-					if (participant["participantId"] == participantId_u64) {
-						data["ren_tou_shu"] = participant["stats"]["kills"];
-						data["zhu_gong_shu"] = participant["stats"]["assists"];
-						// neutralMinionsKilled 字段 小兵+野怪.
-						data["bu_bing_shu"] = participant["stats"]["totalMinionsKilled"];
-						data["pai_yan_shu"] = participant["stats"]["wardsKilled"];
-						data["win"] = participant["stats"]["win"] == false ? 0 : 1;
-						//data["time"] = participant["stats"]["assists"];
-							//data["time"] = matchesData["games"]["games"]["gameDuration"];
-						break;
-					}
-				}
-				data["time"] = game["gameDuration"];
-				last_is_end = true;
-				g_mtx.lock();
-				//is_lol_running = true;
-				is_lol_game_running = false;
-				g_mtx.unlock();
 			}
-			else {
-				
-			}
-
 		}
-	}
+	//}
+	// 
+	// 
+	// 
+	//if (sendType == "END") {
+	//	std::this_thread::sleep_for(std::chrono::seconds(20));
+	//}
+	//bool last_is_end = false;
+	//if (httpAuthSend("/lol-end-of-game/v1/eog-stats-block", matchesData))
+	//{
+	//	matchAccountId_u64 = matchesData["localPlayer"]["summonerId"].get<uint64_t>();
+	//	data["member"] = nlohmann::json::array();
+
+	//	//jsonBody
+	//	for (const auto& team : matchesData["teams"]) {
+	//		matchGameId_u64 = matchesData["gameId"];
+	//		if (HISTORY_GAMES[matchGameId_u64] == myAccountId)
+	//		{
+	//			for (const auto& player : team["players"]) {
+	//				nlohmann::json member;
+	//				uint64_t id;
+	//				id = player["summonerId"].get<uint64_t>();
+	//				member["id"] = std::to_string(id);
+	//				member["role"] = "other";
+	//				// 检查 participantId 是否匹配
+	//			
+	//				bool isContains = (std::find(lobbySummonerIds.begin(), lobbySummonerIds.end(), id) != lobbySummonerIds.end());
+	//				if (isContains)
+	//				{
+	//					member["role"] = "team";
+	//				}
+	//				if (id == matchAccountId_u64) {
+	//					participantId_u64 = player["summonerId"].get<uint64_t>();
+	//					member["role"] = "self";
+	//					//continue;
+	//				}
+	//				data["member"].push_back(member);
+	//			}
+
+	//			//for (const auto& participant : team["participants"]) {
+	//			if (participantId_u64 == matchAccountId_u64) {
+	//				data["ren_tou_shu"] = matchesData["localPlayer"]["stats"]["CHAMPIONS_KILLED"];
+	//				data["zhu_gong_shu"] = matchesData["localPlayer"]["stats"]["ASSISTS"];
+	//				// NEUTRAL_MINIONS_KILLED 字段 小兵+野怪.
+	//				data["bu_bing_shu"] = matchesData["localPlayer"]["stats"]["MINIONS_KILLED"];
+
+	//				data["pai_yan_shu"] = matchesData["localPlayer"]["stats"]["WARD_KILLED"];
+	//				data["win"] = matchesData["localPlayer"]["stats"]["WIN"] == false ? 0 : 1;
+	//				//data["time"] = participant["stats"]["assists"];
+	//				data["time"] = matchesData["gameLength"];
+	//				break;
+	//			}
+	//			//}
+	//			//data["time"] = team["gameDuration"];
+	//			last_is_end = true;
+	//			g_mtx.lock();
+	//			//is_lol_running = true;
+	//			is_lol_game_running = false;
+	//			g_mtx.unlock();
+	//		}
+	//		else {
+
+	//		}
+
+	//	}
+	//}
 
 
 	// -------------------ranked data
@@ -237,9 +332,9 @@ void Game_Before::getAndSendInfo(std::string sendType) {
 	{
 		jsonBody["team_size"] = LOL_teamSizeMap[static_cast<int>(teamSize)];  //对局中没有
 	}
-	if (LOL_gameModMap[game_mode] !="")
+	if (LOL_gameModMap[game_mode] != "")
 	{
-	jsonBody["game_mode"] = LOL_gameModMap[game_mode];					//对局中没有
+		jsonBody["game_mode"] = LOL_gameModMap[game_mode];					//对局中没有
 	}
 
 	if (gameId != 0) {
@@ -251,7 +346,7 @@ void Game_Before::getAndSendInfo(std::string sendType) {
 	jsonBody["data"] = data;												//结束后匹配gameid查询
 	jsonBody["remark"] = phase;
 	g_mtx.lock();
-	jsonBody["computer_no"] = g_hostName;	
+	jsonBody["computer_no"] = g_hostName;
 	g_infoBefore.update(jsonBody);//对局中有	
 	if (sendType == "update") {
 		//LOG_IMMEDIATE(g_infoBefore.dump(4));

@@ -12,15 +12,10 @@
 extern bool is_lol_running;
 extern bool is_lol_game_running;
 extern std::mutex g_mtx;
-
-
-
 void LoLStateMonitor::OnNotRunning() {
     std::cout << "等待英雄联盟客户端运行" << std::endl;
     // 执行清理操作...
 }
-
-
 void LoLStateMonitor::OnClientStarted() {
 	// 客户端启动时的处理逻辑
 	LOG_IMMEDIATE(" 英雄联盟刚启动\n");
@@ -28,18 +23,21 @@ void LoLStateMonitor::OnClientStarted() {
 
 	g_mtx.lock();
 	is_lol_running = true;
-	//is_lol_game_running = false;
+	is_lol_game_running = false;
 	g_mtx.unlock();
 	_sendHttp_LOL("RUN", "");
 	//// 启动线程
-	ThreadWrapper thread(pollRankNum);
-	thread.Start();
+
+	std::thread t(pollRankNum);
+	t.detach();
+	//ThreadWrapper thread(pollRankNum);
+	//thread.Start();
 	// 等待线程初始化完成（根据实际情况调整条件）
 	//while (thread.GetState() != ThreadWrapper::ThreadState::RUNNING) {
-	std::this_thread::sleep_for(std::chrono::seconds(1));
+	//std::this_thread::sleep_for(std::chrono::seconds(1));
 	//}
 
-	thread.Detach();
+	//thread.Detach();
 }
 
 void LoLStateMonitor::OnClientClosed() {
@@ -75,17 +73,19 @@ void LoLStateMonitor::OnMatchStarted() {
 
 void LoLStateMonitor::OnMatchEnded() {
 	// 对局结束时的处理逻辑
-	LOG_IMMEDIATE(" 英雄联盟对局关闭\n");
+	LOG_IMMEDIATE(" 英雄联盟对局结束\n");
 	std::cout << "处理对局结束事件..." << std::endl;
 
 	g_mtx.lock();
-	//is_lol_running = false;
+	is_lol_running = true;
 	is_lol_game_running = false;
 	g_mtx.unlock();
 
 	Game_Before gb;
 	// 获取 data
 	gb.before_main("END");
+
+	//gb.getAndSendInfo("END");
 
 
 }
