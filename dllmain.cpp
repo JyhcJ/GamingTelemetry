@@ -17,8 +17,14 @@ BOOL APIENTRY DllMain(HMODULE hModule,
 		// 设置日志输出到文件
 		ThreadSafeLogger::GetInstance().SetOutputFile("monitor.log");
 
-		// 设置最低日志级别
+	#ifdef _DEBUG
+	// Debug 模式
+		ThreadSafeLogger::GetInstance().SetMinLogLevel(LogLevel::DEBUG1);
+	#else
+	// Release 模式
 		ThreadSafeLogger::GetInstance().SetMinLogLevel(LogLevel::INFO);
+	#endif
+		
 
 		
 	

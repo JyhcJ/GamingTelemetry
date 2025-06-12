@@ -143,9 +143,11 @@
   <ItemGroup>
     <ClInclude Include="common.h" />
     <ClInclude Include="constant.h" />
+    <ClInclude Include="DebugTryCatch.h" />
     <ClInclude Include="framework.h" />
     <ClInclude Include="HttpClient.h" />
     <ClInclude Include="lol.h" />
+    <ClInclude Include="LoLStateMonitor.h" />
     <ClInclude Include="lol_before.h" />
     <ClInclude Include="monitor.h" />
     <ClInclude Include="pch.h" />
@@ -158,6 +160,7 @@
     <ClCompile Include="http.cpp" />
     <ClCompile Include="HttpClient.cpp" />
     <ClCompile Include="lol.cpp" />
+    <ClCompile Include="LoLStateMonitor.cpp" />
     <ClCompile Include="lol_after.cpp" />
     <ClCompile Include="lol_before.cpp" />
     <ClCompile Include="monitor.cpp" />

@@ -41,6 +41,7 @@ public:
 
 	// 日志接口宏（简化调用）
 #define LOG_DEBUG(msg)    ThreadSafeLogger::GetInstance().Log(LogLevel::DEBUG1, msg)
+#define LOG_IMMEDIATE_DEBUG(msg)    ThreadSafeLogger::GetInstance().LogImmediate(LogLevel::DEBUG1, msg)
 #define LOG_INFO(msg)     ThreadSafeLogger::GetInstance().Log(LogLevel::INFO, msg)
 #define LOG_IMMEDIATE(msg)     ThreadSafeLogger::GetInstance().LogImmediate(LogLevel::INFO, msg)
 #define LOG_IMMEDIATE_WARNING(msg)     ThreadSafeLogger::GetInstance().LogImmediate(LogLevel::WARNING, msg)

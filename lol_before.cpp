@@ -3,23 +3,19 @@
 #include "constant.h"
 #include "lol.h"
 
-// 全局变量传到对局中吧
-//std::string BEFORE_NUMS_COUNT;
-//std::string BEFORE_REGION;
-//std::string BEFORE_RANK;
-//std::string BEFORE_STATE;
-//std::string BEFORE_TYPE;
-//std::string BEFORE_RANK_H;
 extern std::string g_hostName;
+extern bool is_lol_running ;
+extern bool is_lol_game_running;
 nlohmann::json g_infoBefore;
 
+std::mutex g_mtx;
 static std::map<size_t, size_t> HISTORY_GAMES;//gameid _ userid
 
 bool Game_Before::getParam() {
 	std::string str = ExecuteCommandAsAdmin(L"wmic PROCESS WHERE name='LeagueClientUx.exe' GET commandline");
 	if (str.size() < 100)
 	{
-		LOG_IMMEDIATE_ERROR("客户端未启动?");
+		LOG_IMMEDIATE_ERROR("客户端未启动? 等待客户端完全启动");
 		return false;
 	}
 	app_port = extractParamValue(str, "--app-port=");
@@ -46,29 +42,38 @@ bool Game_Before::httpAuthSend(std::string endUrl, nlohmann::json& responseJson,
 	headers.emplace(L"Content-Type", L"application/json");
 
 	std::string allUrl = url + endUrl;
-	//std::string summoner_json = make_request(summoner_url);
-	std::string response_json = http.SendRequest(
-		string2wstring(allUrl),
-		L"GET",
-		headers,
-		"",
-		true,
-		string2wstring(param)
-	);
 	nlohmann::json p_responseJson;
+	//std::string summoner_json = make_request(summoner_url);
 	try {
+		std::string response_json = http.SendRequest(
+			string2wstring(allUrl),
+			L"GET",
+			headers,
+			"",
+			true,
+			string2wstring(param)
+		);
+
 		p_responseJson = nlohmann::json::parse(response_json);
 	}
 	catch (const nlohmann::json::parse_error& e) {
 		std::string error = e.what();
-		LOG_IMMEDIATE_WARNING("p_responseJson 解析失败: " + error);
-		LOG_IMMEDIATE_WARNING("p_responseJson : " + p_responseJson);
+		LOG_IMMEDIATE_DEBUG("p_responseJson 解析失败: " + error);
+		LOG_IMMEDIATE_DEBUG("p_responseJson : " + p_responseJson);
 	}
+	catch (const std::exception& e) {
+		LOG_IMMEDIATE_ERROR("httpAuthSend:::");
+		LOG_IMMEDIATE_ERROR(e.what());
+	}
+	catch (...) {  // 捕获其他所有异常
+		LOG_IMMEDIATE_ERROR("httpAuthSend :::Unknown exception occurred");
+	}
+
 	// 检查字段是否存在
 	if (p_responseJson.contains("errorCode")) {
-		LOG_IMMEDIATE_WARNING(allUrl + "::errorCode::" + p_responseJson["errorCode"].dump());
+		LOG_IMMEDIATE_DEBUG(allUrl + "::errorCode::" + p_responseJson["errorCode"].dump());
 		if (p_responseJson.contains("message")) {
-			LOG_IMMEDIATE_WARNING(allUrl + "::message::" + p_responseJson["message"].dump());
+			LOG_IMMEDIATE_DEBUG(allUrl + "::message::" + p_responseJson["message"].dump());
 		}
 		responseJson = p_responseJson;
 		return false;
@@ -95,12 +100,15 @@ void Game_Before::getAndSendInfo(std::string sendType) {
 	uint64_t myAccountId;
 	if (httpAuthSend("/lol-summoner/v1/current-summoner", summonerData))
 	{
-		myAccountId = summonerData["accountId"];
+		if (summonerData.contains("accountId")) {
+			myAccountId = summonerData["accountId"];
+		}
+	
 		//myAccountId = summonerData["accountId"].get<uint64_t>();
 	}
 
 
-	
+
 
 	nlohmann::json lobbyData;
 	size_t teamSize = 0;
@@ -151,9 +159,9 @@ void Game_Before::getAndSendInfo(std::string sendType) {
 
 	nlohmann::json jsonBody;
 	nlohmann::json data;
-	nlohmann::json member;
 
 
+	bool last_is_end = false;
 	if (httpAuthSend("/lol-match-history/v1/products/lol/current-summoner/matches", matchesData, "?begIndex=0&endIndex=0"))
 	{
 		matchAccountId_u64 = matchesData["accountId"].get<uint64_t>();
@@ -162,19 +170,22 @@ void Game_Before::getAndSendInfo(std::string sendType) {
 		//jsonBody
 		for (const auto& game : matchesData["games"]["games"]) {
 			matchGameId_u64 = game["gameId"];
-			if (HISTORY_GAMES[matchGameId_u64]== myAccountId && "GameComplete" == game["endOfGameResult"])
+			if (HISTORY_GAMES[matchGameId_u64] == myAccountId && "GameComplete" == game["endOfGameResult"])
 			{
 				for (const auto& participantIdentitie : game["participantIdentities"]) {
-					member["id"] = participantIdentitie["player"]["summonerId"];
+					nlohmann::json member;
+					uint64_t id;
+					id = participantIdentitie["player"]["summonerId"].get<uint64_t>();
+					member["id"] = std::to_string(id);
 					member["role"] = "other";
 					// 检查 participantId 是否匹配
-					if (member["id"] == matchAccountId_u64) {
+					if (id == matchAccountId_u64) {
 						participantId_u64 = participantIdentitie["participantId"].get<uint64_t>();
 						member["role"] = "self";
-
-						continue;
+						//continue;
 					}
-					if (lobbyData.contains(member["id"]))
+					bool isContains = (std::find(lobbySummonerIds.begin(), lobbySummonerIds.end(), member["id"]) != lobbySummonerIds.end());
+					if (isContains)
 					{
 						member["role"] = "team";
 					}
@@ -196,8 +207,16 @@ void Game_Before::getAndSendInfo(std::string sendType) {
 					}
 				}
 				data["time"] = game["gameDuration"];
+				last_is_end = true;
+				g_mtx.lock();
+				//is_lol_running = true;
+				is_lol_game_running = false;
+				g_mtx.unlock();
 			}
-			
+			else {
+				
+			}
+
 		}
 	}
 
@@ -214,23 +233,37 @@ void Game_Before::getAndSendInfo(std::string sendType) {
 		LOL_regionMap[rso_original_platform_id] :
 		"Unknown";
 
+	if (teamSize != 0)
+	{
+		jsonBody["team_size"] = LOL_teamSizeMap[static_cast<int>(teamSize)];  //对局中没有
+	}
+	if (LOL_gameModMap[game_mode] !="")
+	{
+	jsonBody["game_mode"] = LOL_gameModMap[game_mode];					//对局中没有
+	}
 
-	jsonBody["game_uuid"] = std::to_string(gameId);
-	jsonBody["computer_no"] = g_hostName;
-	jsonBody["name"] = "LOL";
-	jsonBody["game_mode"] = LOL_gameModMap[game_mode];
-	jsonBody["team_size"] = LOL_teamSizeMap[static_cast<int>(teamSize)];
-	jsonBody["user_game_rank"] = LOL_rankAPIMap[highestTier];
+	if (gameId != 0) {
+		jsonBody["game_uuid"] = std::to_string(gameId);							//对局中有
+	}
+	jsonBody["name"] = "LOL";													//固定
+	jsonBody["user_game_rank"] = LOL_rankAPIMap[highestTier];				//一直都有?
 	jsonBody["type"] = sendType;
-	jsonBody["data"] = data;
+	jsonBody["data"] = data;												//结束后匹配gameid查询
 	jsonBody["remark"] = phase;
+	g_mtx.lock();
+	jsonBody["computer_no"] = g_hostName;	
+	g_infoBefore.update(jsonBody);//对局中有	
 	if (sendType == "update") {
-		//LOG_IMMEDIATE(jsonBody.dump(4));
-		g_infoBefore = jsonBody;
+		//LOG_IMMEDIATE(g_infoBefore.dump(4));
+		//g_infoBefore = jsonBody;
 	}
-	else if (sendType == "END") {
-		_sendHttp_LOL(jsonBody);
+
+	else if (sendType == "END" && last_is_end) {
+		LOG_IMMEDIATE(" 英雄联盟对局结束?/ 掉线? / 重开?");
+		g_infoBefore["event_id"] = "end";
+		_sendHttp_LOL(g_infoBefore);
 	}
+	g_mtx.unlock();
 }
 
 

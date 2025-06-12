@@ -18,3 +18,7 @@ std::string TCHARToString(const TCHAR* tcharStr);
 
 std::string gethostName();
 
+std::wstring GetComputerNameWString();
+
+std::string WStringToString(const std::wstring& wstr);
+

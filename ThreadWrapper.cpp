@@ -2,6 +2,7 @@
 #include "ThreadWrapper.h"
 #include "ThreadSafeLogger.h"
 
+
 ThreadWrapper::ThreadWrapper(std::function<void()> threadFunc)
 	: m_state(ThreadState::IDLE), m_threadFunc(std::move(threadFunc)) {
 	if (!m_threadFunc) {
@@ -81,7 +82,8 @@ void ThreadWrapper::ThreadMain() {
 		m_threadFunc();
 	}
 	catch (const std::exception& e) {
-		Log("线程异常: " + std::string(e.what()));
+		//Log("线程异常: " + std::string(e.what()));
+		LOG_IMMEDIATE_ERROR("线程异常: " + std::string(e.what()));
 	}
 
 	// 自动状态转换

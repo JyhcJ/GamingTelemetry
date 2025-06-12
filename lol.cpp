@@ -50,22 +50,24 @@
 extern bool is_lol_game_running;
 extern bool is_lol_running;
 extern nlohmann::json g_infoBefore;
-
+extern std::mutex g_mtx;
 //extern std::string BEFORE_NUMS_COUNT;
 //extern std::string BEFORE_REGION;
 //extern std::string BEFORE_RANK;
 //extern std::string BEFORE_STATE;
 //extern std::string BEFORE_TYPE;
 
-int MULTIKILL;
-int DEATHS;
-bool isCHAOSHEN;
-int EVENTID;
+int g_multkill;
+int g_deaths = -1;
+int g_event_id;
+bool g_is_chaoshen;
+
 std::string playerName;
 std::map<std::string, std::vector<time_t>> kill_history;
-std::mutex kill_mutex;
-const int MULTIKILL_WINDOW = 10; // 连杀时间窗口(秒)
+//std::mutex kill_mutex;
+//const int MULTIKILL_WINDOW = 10; // 连杀时间窗口(秒)
 std::unordered_set<int> processed_event_ids;
+
 
 
 struct PostGameData {
@@ -83,7 +85,7 @@ struct PostGameData {
 void _sendHttp_LOL(PostGameData pgd);
 
 // 配置常量
-const int POLL_INTERVAL = 1;
+const int POLL_INTERVAL = 5;
 //const std::wstring LCU_URL = L"https://127.0.0.1:2999/liveclientdata/eventdata";
 const std::wstring LCU_URL = L"https://127.0.0.1:2999/liveclientdata/allgamedata";
 const std::wstring NAME_URL = L"https://127.0.0.1:2999/liveclientdata/activeplayername";
@@ -326,7 +328,15 @@ void processEvents(const std::string& jsonData) {
 
 	rapidjson::Document data1;
 
-	nlohmann::json jsonbody = g_infoBefore;
+	g_mtx.lock();
+	nlohmann::json jsonbody;
+	if (!g_infoBefore.empty())
+	{
+		jsonbody.update(g_infoBefore);
+	}
+
+	g_mtx.unlock(); 
+	
 
 	data1.Parse(jsonDataCStr);
 
@@ -337,32 +347,26 @@ void processEvents(const std::string& jsonData) {
 			pgd.game_mode = temp["gameMode"].GetString();
 		}
 		else {
-			LOG_IMMEDIATE_ERROR("json数据:" + jsonData + "\n" + "没有找到gameMode字段");
+			LOG_IMMEDIATE_ERROR("json数据:" + jsonData + "\n" + "没有找到gameMode字段,等待对局开始");
 			return;
 		}
 	}
 	else {
-		LOG_IMMEDIATE_ERROR("json数据:" + jsonData + "\n" + "没有找到gameData字段");
+		LOG_IMMEDIATE_ERROR("json数据:" + jsonData + "\n" + "没有找到gameData字段,,等待对局开始");
 		return;
 	}
-	//pgd.game_mode = data1["gameData"]["gameMode"].GetString();
-	//pgd.team_size = "1";
-	// 解析 JSON 字符串
-	/*if (doc.Parse(jsonDataCStr).HasParseError()) {
-		std::cerr << "JSON 解析错误！" << std::endl;
-		return;
-	}
-	std::cout << getCurrentTimeString() << " 解析到事件数据: " << jsonData << std::endl;*/
+
 	const rapidjson::Value& data = data1["events"];
+	Game_Before gb;
+	// 获取 gameid 和gamemod
+	gb.before_main("update");
 
 	// 检查Events数组是否存在
 	if (!data.HasMember("Events") || !data["Events"].IsArray()) {
 		LOG_IMMEDIATE_ERROR("json数据:" + jsonData + "\n" + "没有正确识别Events字段");
 		return;
 	}
-	//TODO 这个computer_no 要在barclient中查?
-	//pgd.computer_no = "ttt";
-	//playerName = "啊大声道大s";
+
 	playerName = getPlayerName();
 	const rapidjson::Value& events = data["Events"];
 	time_t current_time = time(nullptr);
@@ -395,20 +399,25 @@ void processEvents(const std::string& jsonData) {
 			}
 			else {
 				die = player["scores"]["deaths"].GetInt();
-				if (die != DEATHS && die != 0) {
-					MULTIKILL = 0;
-					DEATHS = die;
-					isCHAOSHEN = false;
+				
+				if (die != g_deaths && die != 0) {
+					g_multkill = 0;
+					LOG_IMMEDIATE("g_multkill清空");
+					LOG_IMMEDIATE(std::to_string(g_multkill));
+					//g_deaths = die;
+					g_is_chaoshen = false;
 				}
-				else if (MULTIKILL == 7) {
-					isCHAOSHEN = true;
+				else if (g_multkill >= 7 && !g_is_chaoshen) {
+					LOG_IMMEDIATE("g_multkill>=7");
+					LOG_IMMEDIATE(std::to_string(g_multkill));
+					g_is_chaoshen = true;
+					
 					//发送超神
 					jsonbody["event_id"] = std::to_string(event_id) + "_chaoshen";
 					jsonbody["type"] = "CHAO_SHEN_SHU";
 					_sendHttp_LOL(jsonbody);
 				}
-
-
+				g_deaths = die;
 			}
 		}
 
@@ -417,11 +426,13 @@ void processEvents(const std::string& jsonData) {
 			std::string(event["EventName"].GetString()) == "Multikill") {
 			// 获取击杀者名称
 			if (!event.HasMember("KillerName") || !event["KillerName"].IsString()) {
+				processed_event_ids.insert(event_id);
 				continue;
 			}
 
 			std::string killer = event["KillerName"].GetString();
 			if (killer.empty() || killer != playerName) {
+				processed_event_ids.insert(event_id);
 				continue;
 			}
 
@@ -433,26 +444,28 @@ void processEvents(const std::string& jsonData) {
 			if (event.HasMember("KillStreak") && event["KillStreak"].IsInt()) {
 				kill_count = event["KillStreak"].GetInt();
 				jsonbody["event_id"] = std::to_string(event["EventID"].GetInt());
-				MULTIKILL += kill_count;
+				//g_multkill += kill_count;
+				//LOG_IMMEDIATE("g_multkill 累杀"+ std::to_string(kill_count));
+				//LOG_IMMEDIATE(std::to_string(g_multkill));
 				switch (kill_count) {
 					/*	case 2:
 							pgd.type = "2_SHU";
 							break;*/
 				case 3:
 					jsonbody["type"] = "SAN_SHA_SHU";
+					_sendHttp_LOL(jsonbody);
 					break;
 				case 4:
 					jsonbody["type"] = "SI_SHA_SHU";
+					_sendHttp_LOL(jsonbody);
 					break;
 				case 5:
 					jsonbody["type"] = "WU_SHA_SHU";
+					_sendHttp_LOL(jsonbody);
 					break;
 				}
-				if (kill_count >= 3) {
-					_sendHttp_LOL(jsonbody);
-				}
+			
 
-				
 			}
 
 		}
@@ -464,41 +477,47 @@ void processEvents(const std::string& jsonData) {
 			std::string(event["EventName"].GetString()) == "ChampionKill") {
 			// 获取击杀者名称
 			if (!event.HasMember("KillerName") || !event["KillerName"].IsString()) {
-				continue;
+				//continue;
 			}
-			std::string killer = event["KillerName"].GetString();
-			const rapidjson::Value& players = data1["allPlayers"];
-			if (killer.empty() || killer != playerName) {
-				//他人击杀 判断助攻是否改变 (如果要实时上传助攻)
-				//for (rapidjson::SizeType i = 0; i < players.Size(); i++) {
-				//	const rapidjson::Value& player = players[i];
-				//	if (player["riotIdGameName"].GetString() != playerName) {
-				//		continue;
-				//	}
-				//	else {
-				//		pgd.type_count = std::to_string(player["scores"]["assists"].GetInt());
-				//		//_sendHttp_LOL(pgd);
-				//	}
-				//}
 
-				continue;
-			}
-			//pgd.type = "CUMULATIVE_KILLS";
-			//data["allPlayers"]["riotIdGameName"].GetString();
-			for (rapidjson::SizeType i = 0; i < players.Size(); i++) {
-				const rapidjson::Value& player = players[i];
-				if (player["riotIdGameName"].GetString() != playerName) {
-					continue;
+			else {
+				std::string killer = event["KillerName"].GetString();
+				const rapidjson::Value& players = data1["allPlayers"];
+				if (killer.empty() || killer != playerName) {
+					//他人击杀 判断助攻是否改变 (如果要实时上传助攻)
+					//for (rapidjson::SizeType i = 0; i < players.Size(); i++) {
+					//	const rapidjson::Value& player = players[i];
+					//	if (player["riotIdGameName"].GetString() != playerName) {
+					//		continue;
+					//	}
+					//	else {
+					//		pgd.type_count = std::to_string(player["scores"]["assists"].GetInt());
+					//		//_sendHttp_LOL(pgd);
+					//	}
+					//}
+
+					//continue;
 				}
 				else {
-					// 累计杀敌
-					MULTIKILL += 1;
-					// 新接口废弃掉了
-					//pgd.type = 
-					//pgd.type_count = std::to_string(player["scores"]["kills"].GetInt());
-					//_sendHttp_LOL(pgd);
+					g_multkill += 1;
+					LOG_IMMEDIATE("连杀数:"+std::to_string(g_multkill));
+					LOG_IMMEDIATE("event_id:"+std::to_string(event_id));
 				}
 			}
+			//for (rapidjson::SizeType i = 0; i < players.Size(); i++) {
+			//	const rapidjson::Value& player = players[i];
+			//	if (player["riotIdGameName"].GetString() != playerName) {
+			//		//continue;
+			//	}
+			//	else {
+			//		// 累计杀敌
+			//		
+			//	}
+			//}
+
+
+
+
 		}
 		else {
 			//LOG_IMMEDIATE_WARNING("没有正确识别EventName字段");
@@ -510,28 +529,28 @@ void processEvents(const std::string& jsonData) {
 }
 
 
-
 void pollEvents() {
 
 	while (is_lol_game_running) {
 		std::string response = makeHttpsRequest(LCU_URL);
 
-		//TODO 这里处理gameID
-		//std::string response_gamedata = makeHttpsRequest(LCU_URL);
-
-		//std::cout << response << std::endl;
-		//TODO  以UTF-8對比
 		if (!response.empty()) {
 			processEvents(response);
 		}
 		else {
-			is_lol_game_running = false;
+		
+			//g_mtx.lock();  
+			//is_lol_game_running = false;
+			//g_mtx.unlock();  
+
 			LOG_IMMEDIATE("LOL:等待对局开始");
+
 			return;
 		}
 		// 1 秒轮询 可更改
 		std::this_thread::sleep_for(std::chrono::seconds(POLL_INTERVAL));
 	}
+	
 }
 
 void pollRankNum() {
@@ -555,8 +574,8 @@ void pollRankNum() {
 		}*/
 		//std::this_thread::sleep_for(std::chrono::seconds(POLL_INTERVAL));
 		// 
-		// 5 秒检测队伍人数 应该可以更大点
-		std::this_thread::sleep_for(std::chrono::seconds(5));
+		// 10 秒检测队伍人数 应该可以更大点
+		std::this_thread::sleep_for(std::chrono::seconds(11));
 	}
 
 }
@@ -638,10 +657,11 @@ void _sendHttp_LOL(PostGameData pgd) {
 	}
 }
 // 向发送信息 (主要用于客户端启动结束)
-void _sendHttp_LOL(std::string type,std::string data) {
+void _sendHttp_LOL(std::string type, nlohmann::json data) {
 	HttpClient http;
 	nlohmann::json jsonBody;
 	jsonBody["type"] = type;
+	jsonBody["name"] = "LOL";
 	LOG_IMMEDIATE(jsonBody.dump(4));
 	try {
 		// 3. 发送POST请求
@@ -664,8 +684,7 @@ void _sendHttp_LOL(std::string type,std::string data) {
 		LOG_IMMEDIATE_ERROR("_sendHttp_LOL :::Unknown exception occurred");
 	}
 }
-
-// 向发送信息 (主要用于对局结束后)
+// 向发送信息 (主要用于对局结束后 对局中)
 void _sendHttp_LOL(nlohmann::json jsonBody) {
 	HttpClient http;
 

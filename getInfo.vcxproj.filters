@@ -45,6 +45,12 @@
     <ClInclude Include="constant.h">
       <Filter>头文件</Filter>
     </ClInclude>
+    <ClInclude Include="DebugTryCatch.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="LoLStateMonitor.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="dllmain.cpp">
@@ -81,6 +87,9 @@
       <Filter>源文件</Filter>
     </ClCompile>
     <ClCompile Include="lol_after.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="LoLStateMonitor.cpp">
       <Filter>源文件</Filter>
     </ClCompile>
   </ItemGroup>

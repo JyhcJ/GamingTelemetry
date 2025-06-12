@@ -42,7 +42,10 @@ static std::map<std::string, std::string> LOL_gameModMap = {
 	{"ARURF", "UNLIMIT_FIRE"},
 	{"NEXUS_BLITZ", "ULTIMATE_HIT"},
 	{"BRAWL", "GOD_TREE"},
-	{"NONE","NULL"}
+	//{"NONE","NULL"},
+	{"NONE","MATCH"},
+	{"",""},
+
 };
 
 static std::map<int, std::string> LOL_teamSizeMap = {

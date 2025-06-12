@@ -130,3 +130,43 @@ std::string gethostName() {
 	}
 	return  hostName;
 }
+
+std::wstring GetComputerNameWString() {
+	wchar_t buffer[MAX_COMPUTERNAME_LENGTH + 1];
+	DWORD size = MAX_COMPUTERNAME_LENGTH + 1;
+
+	if (GetComputerNameW(buffer, &size)) {
+		return std::wstring(buffer, size);
+	}
+	else {
+		return L"";  // 获取失败
+	}
+}
+
+std::string WStringToString(const std::wstring& wstr) {
+	if (wstr.empty()) return std::string();
+
+	int size_needed = WideCharToMultiByte(
+		CP_UTF8,                // 使用 UTF-8 编码
+		0,                     // 无特殊标志
+		wstr.c_str(),           // 输入宽字符串
+		(int)wstr.size(),      // 字符串长度（不包括 NULL）
+		NULL,                  // 输出缓冲区（NULL 表示计算所需大小）
+		0,                     // 输出缓冲区大小
+		NULL, NULL             // 默认字符和是否使用默认字符
+	);
+
+	if (size_needed <= 0) {
+		return "";  // 转换失败
+	}
+
+	std::string str(size_needed, 0);
+	WideCharToMultiByte(
+		CP_UTF8, 0,
+		wstr.c_str(), (int)wstr.size(),
+		&str[0], size_needed,
+		NULL, NULL
+	);
+
+	return str;
+}
