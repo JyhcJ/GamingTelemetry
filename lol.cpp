@@ -61,6 +61,7 @@ int g_multkill;
 int g_deaths = -1;
 int g_event_id;
 bool g_is_chaoshen;
+std::mutex g_mtx_header;
 
 std::string playerName;
 std::map<std::string, std::vector<time_t>> kill_history;
@@ -89,27 +90,27 @@ const int POLL_INTERVAL = 5;
 //const std::wstring LCU_URL = L"https://127.0.0.1:2999/liveclientdata/eventdata";
 const std::wstring LCU_URL = L"https://127.0.0.1:2999/liveclientdata/allgamedata";
 const std::wstring NAME_URL = L"https://127.0.0.1:2999/liveclientdata/activeplayername";
-const std::map<std::wstring, std::wstring> HEADERS = {
+static std::map<std::wstring, std::wstring> HEADERS = {
 	/*	{ L"Content-Type", L"application/json" },
 		{ L"User-Agent", L"Mozilla/5.0" },
 		{ L"token", L"{{bToken}}" },*/
 
-		{   L"language",L"ZH_CN" },
-		{   L"merchantId",L"53" },
-		{   L"sec-ch-ua-platform",L"\"Windows\""                                                                                                    },
-		{   L"Referer",L"https://dev-asz.cjmofang.com/activity/activityManagement/createActivity/MODE_SIGN/0/add/0"                                 },
-		{   L"sec-ch-ua",L"\"Chromium\";v=\"136\", \"Google Chrome\";v=\"136\", \"Not.A/Brand\";v=\"99\""                                           },
-		{   L"sec-ch-ua-mobile",L"?0"                                                                                                               },
-		{   L"barId",L"98"                                                                                                                          },
-		{   L"Accept",L"application/json, text/plain, */*"                                                                                          },
-		{   L"Content-Type",L"application/json"                                                                                                     },
 		{   L"organizationType",L"\"BAR\""                                                                                                          },
+		{   L"merchantId",L"53" },
+		{   L"barId",L"98"                                                                                                                          },
 		{   L"token",L"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJSZW1vdGVJcCI6IiIsIkxvY2FsTG9naW4iOjAsIkNvbnRleHQiOnsidXNlcl9pZCI6MjQ3LCJ1c2VyX25hbWUiOiJ4eHgiLCJ1dWlkIjoiIiwicmlkIjoxOCwibWFudWZhY3R1cmVfaWQiOjUzLCJiYXJfaWQiOjk4LCJyb290X2lkIjowLCJvcmdhbml6YXRpb25fdHlwZSI6IiIsInBsYXRmb3JtIjoiYmFyY2xpZW50In0sImV4cCI6MTc1MDQ2ODMwMH0.21sEbRTirJggWvWlOygMOczAQWs8vQd0hh0ZKJuNTbs"                                                                                                                  },
 		{   L"User-Agent",L"Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/136.0.0.0 Safari/537.36\r\n"        },
-		{   L"Accept-Encoding",L"gzip, deflate, br"                                                                                                 },
-		{   L"Connection",L"keep-alive"                                                                                                             },
-		{   L"Cache-Control",L"no-cache"                                                                                                            },
-		{   L"Host",L"127.0.0.1:8000"                                                                                                                }
+		{   L"language",L"ZH_CN" },
+		{   L"sec-ch-ua-platform",L"\"Windows\""                                                                                                    },
+		{   L"sec-ch-ua-mobile",L"?0"                                                                                                               },
+		{   L"Accept",L"application/json, text/plain, */*"                                                                                          },
+		{   L"Content-Type",L"application/json"                                                                                                     },
+		//	{   L"Referer",L"https://dev-asz.cjmofang.com/activity/activityManagement/createActivity/MODE_SIGN/0/add/0"                                 },
+			{   L"sec-ch-ua",L"\"Chromium\";v=\"136\", \"Google Chrome\";v=\"136\", \"Not.A/Brand\";v=\"99\""                                           },
+			{   L"Accept-Encoding",L"gzip, deflate, br"                                                                                                 },
+			{   L"Connection",L"keep-alive"                                                                                                             },
+			{   L"Cache-Control",L"no-cache"                                                                                                            },
+			{   L"Host",L"127.0.0.1:8000"                                                                                                                }
 };
 
 
@@ -335,8 +336,8 @@ void processEvents(const std::string& jsonData) {
 		jsonbody.update(g_infoBefore);
 	}
 
-	g_mtx.unlock(); 
-	
+	g_mtx.unlock();
+
 
 	data1.Parse(jsonDataCStr);
 
@@ -399,7 +400,7 @@ void processEvents(const std::string& jsonData) {
 			}
 			else {
 				die = player["scores"]["deaths"].GetInt();
-				
+
 				if (die != g_deaths && die != 0) {
 					g_multkill = 0;
 					LOG_IMMEDIATE("g_multkill清空");
@@ -411,7 +412,7 @@ void processEvents(const std::string& jsonData) {
 					LOG_IMMEDIATE("g_multkill>=7");
 					LOG_IMMEDIATE(std::to_string(g_multkill));
 					g_is_chaoshen = true;
-					
+
 					//发送超神
 					jsonbody["event_id"] = std::to_string(event_id) + "_chaoshen";
 					jsonbody["type"] = "CHAO_SHEN_SHU";
@@ -464,7 +465,7 @@ void processEvents(const std::string& jsonData) {
 					_sendHttp_LOL(jsonbody);
 					break;
 				}
-			
+
 
 			}
 
@@ -500,8 +501,8 @@ void processEvents(const std::string& jsonData) {
 				}
 				else {
 					g_multkill += 1;
-					LOG_IMMEDIATE("连杀数:"+std::to_string(g_multkill));
-					LOG_IMMEDIATE("event_id:"+std::to_string(event_id));
+					LOG_IMMEDIATE("连杀数:" + std::to_string(g_multkill));
+					LOG_IMMEDIATE("event_id:" + std::to_string(event_id));
 				}
 			}
 			//for (rapidjson::SizeType i = 0; i < players.Size(); i++) {
@@ -538,23 +539,23 @@ void pollEvents() {
 			processEvents(response);
 		}
 		else {
-		
+
 			//g_mtx.lock();  
 			//is_lol_game_running = false;
 			//g_mtx.unlock();  
 
 			LOG_IMMEDIATE("LOL:等待对局开始");
 
-			return;
+			//return; 这个return????
 		}
 		// 1 秒轮询 可更改
 		std::this_thread::sleep_for(std::chrono::seconds(POLL_INTERVAL));
 	}
-	
+
 }
 
 void pollRankNum() {
-	
+
 	Game_Before gb;
 
 	while (is_lol_running) {
@@ -622,7 +623,7 @@ void _sendHttp_LOL(PostGameData pgd) {
 		"\"computer_no\": \"" + pgd.computer_no + "\",\n"
 		"\"name\": \"" + pgd.name + "\",\n"
 		"\"game_mode\": \"" + "TODO" + "\",\n"
-		"\"user_game_rank\": \"" +  + "\",\n"
+		"\"user_game_rank\": \"" + +"\",\n"
 		//"\"team_size\": \"" + teamSizeMap[pgd.team_size] + "\",\n"
 		"\"type\": \"" + pgd.type + "\",\n"
 		"\"eventID\": \"" + pgd.eventID + "\"\n"
@@ -642,13 +643,14 @@ void _sendHttp_LOL(PostGameData pgd) {
 
 	try {
 		// 3. 发送POST请求
+		g_mtx_header.lock();
 		std::string response = http.SendRequest(
 			L"https://dev-asz.cjmofang.com/api/client/PostGameData",
 			L"POST",
 			HEADERS,
 			jsonBody
 		);
-
+		g_mtx_header.unlock();
 		LOG_IMMEDIATE("Response: " + response);
 	}
 	catch (const std::exception& e) {
@@ -665,12 +667,14 @@ void _sendHttp_LOL(std::string type, nlohmann::json data) {
 	LOG_IMMEDIATE(jsonBody.dump(4));
 	try {
 		// 3. 发送POST请求
+		g_mtx_header.lock();
 		std::string response = http.SendRequest(
 			L"https://dev-asz.cjmofang.com/api/client/PostGameData",
 			L"POST",
 			HEADERS,
 			jsonBody.dump()
 		);
+		g_mtx_header.unlock();
 
 		LOG_IMMEDIATE("Response: " + UTF8ToGBK(response));
 	}
@@ -692,13 +696,14 @@ void _sendHttp_LOL(nlohmann::json jsonBody) {
 
 	try {
 		// 3. 发送POST请求
+		g_mtx_header.lock();
 		std::string response = http.SendRequest(
 			L"https://dev-asz.cjmofang.com/api/client/PostGameData",
 			L"POST",
 			HEADERS,
 			jsonBody.dump()
 		);
-	
+		g_mtx_header.unlock();
 		LOG_IMMEDIATE("Response: " + UTF8ToGBK(response));
 	}
 	catch (const std::exception& e) {
@@ -719,3 +724,50 @@ extern "C" __declspec(dllexport) int Add(int a, int b) {
 	return a + b;
 	//_sendHttp_LOL("");
 }
+
+
+extern "C" __declspec(dllexport) const int setHeader(const char* token1, const char* manufactureId1, const char* barId1) {
+	
+	std::lock_guard<std::mutex> lock(g_mtx_header);
+	std::string token = (token1 != nullptr) ? token1 : "";
+	std::string manufactureId = (manufactureId1 != nullptr) ? manufactureId1 : "";
+	std::string barId = (barId1 != nullptr) ? barId1 : "";
+	/*if (token.empty() || manufactureId.empty() || barId.empty()) {
+		LOG_IMMEDIATE_ERROR("setHeader接收的为空");
+		return 0;
+	}*/
+	//LOG_IMMEDIATE_DEBUG("DLL:Token:" + token);
+	LOG_IMMEDIATE_DEBUG("DLL:manufactureId:" + token);
+	LOG_IMMEDIATE_DEBUG("DLL:barId:" + token);
+	try {
+		HEADERS = {
+			/*	{ L"Content-Type", L"application/json" },
+				{ L"User-Agent", L"Mozilla/5.0" },
+				{ L"token", L"{{bToken}}" },*/
+				{   L"organizationType",L"\"BAR\""                                                                                                          },
+				{   L"merchantId",	stringTOwstring(manufactureId) },
+				{   L"barId",	stringTOwstring(barId)                                                                                                                          },
+				//{   L"token",L"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJSZW1vdGVJcCI6IiIsIkxvY2FsTG9naW4iOjAsIkNvbnRleHQiOnsidXNlcl9pZCI6MjQ3LCJ1c2VyX25hbWUiOiJ4eHgiLCJ1dWlkIjoiIiwicmlkIjoxOCwibWFudWZhY3R1cmVfaWQiOjUzLCJiYXJfaWQiOjk4LCJyb290X2lkIjowLCJvcmdhbml6YXRpb25fdHlwZSI6IiIsInBsYXRmb3JtIjoiYmFyY2xpZW50In0sImV4cCI6MTc1MDQ2ODMwMH0.21sEbRTirJggWvWlOygMOczAQWs8vQd0hh0ZKJuNTbs"                                                                                                                  },
+				{   L"token",       stringTOwstring(token)                                                                                                             },
+				{   L"User-Agent",L"Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/136.0.0.0 Safari/537.36\r\n"        },
+				{   L"language",L"ZH_CN" },
+				{   L"sec-ch-ua-platform",L"\"Windows\""                                                                                                    },
+				{   L"sec-ch-ua-mobile",L"?0"                                                                                                               },
+				{   L"Accept",L"application/json, text/plain, */*"                                                                                          },
+				{   L"Content-Type",L"application/json"                                                                                                     },
+				//	{   L"Referer",L"https://dev-asz.cjmofang.com/activity/activityManagement/createActivity/MODE_SIGN/0/add/0"                                 },
+					{   L"sec-ch-ua",L"\"Chromium\";v=\"136\", \"Google Chrome\";v=\"136\", \"Not.A/Brand\";v=\"99\""                                           },
+					{   L"Accept-Encoding",L"gzip, deflate, br"                                                                                                 },
+					{   L"Connection",L"keep-alive"                                                                                                             },
+					{   L"Cache-Control",L"no-cache"                                                                                                            },
+					{   L"Host",L"127.0.0.1:8000"                                                                                                                }
+		};
+	}
+	catch (const std::exception& e) {
+		LOG_IMMEDIATE_ERROR("setHeader 没有设置");
+		return 0;
+	}
+
+	return 1;
+}
+

@@ -310,9 +310,9 @@ int main() {
 		LOG_ERROR(e.what());
 		return 1;;
 	}
-	//catch (...) {  // 捕获其他所有异常
-	//	LOG_IMMEDIATE_ERROR("main :::Unknown exception occurred");
-	//}
+	catch (...) {  // 捕获其他所有异常
+		LOG_IMMEDIATE_ERROR("main :::Unknown exception occurred");
+	}
 	//调试时备注掉
 	return 0;
 }
@@ -322,3 +322,4 @@ int main() {
 extern "C" __declspec(dllexport) const int monitorLOL() {
 	return main();
 }
+

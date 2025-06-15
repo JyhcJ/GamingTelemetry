@@ -64,10 +64,14 @@ void LoLStateMonitor::OnMatchStarted() {
 	g_mtx.unlock();
 
 	//// 启动线程
-	ThreadWrapper thread(pollEvents);
-	thread.Start();
-	std::this_thread::sleep_for(std::chrono::seconds(1));
-	thread.Detach();
+	//ThreadWrapper thread(pollEvents);
+	//thread.Start();
+	//std::this_thread::sleep_for(std::chrono::seconds(1));
+	//thread.Detach();
+
+	std::thread poll(pollEvents);
+	poll.detach();
+
 	std::cout << "处理对局开始事件..." << std::endl;
 }
 

@@ -15,15 +15,16 @@ static std::map<size_t, size_t> HISTORY_GAMES;//gameid _ userid
 
 bool Game_Before::getParam() {
 	std::lock_guard<std::mutex> lock(g_m); // 自动加锁/解锁
-	std::string str = ExecuteCommandAsAdmin(L"wmic PROCESS WHERE name='LeagueClientUx.exe' GET commandline");
+	std::string str = getUserPass(L"wmic PROCESS WHERE name='LeagueClientUx.exe' GET commandline");
 	if (str.size() < 100)
 	{
-		LOG_IMMEDIATE_ERROR("客户端未启动? 等待客户端完全启动");
+		LOG_IMMEDIATE("客户端未启动? 等待客户端完全启动");
 		return false;
 	}
 	app_port = extractParamValue(str, "--app-port=");
 	auth_token = extractParamValue(str, "--remoting-auth-token");
 	rso_platform_id = extractParamValue(str, "--rso_platform_id=");
+
 	rso_original_platform_id = extractParamValue(str, "--rso_original_platform_id=");
 
 	if (rso_original_platform_id == "") {
@@ -65,7 +66,7 @@ bool Game_Before::httpAuthSend(std::string endUrl, nlohmann::json& responseJson,
 		LOG_IMMEDIATE_DEBUG("p_responseJson : " + p_responseJson);
 	}
 	catch (const std::exception& e) {
-		LOG_IMMEDIATE_ERROR("httpAuthSend:::");
+		LOG_IMMEDIATE_ERROR("httpAuthSend:::exception");
 		LOG_IMMEDIATE_ERROR(e.what());
 	}
 	catch (...) {  // 捕获其他所有异常
@@ -74,9 +75,9 @@ bool Game_Before::httpAuthSend(std::string endUrl, nlohmann::json& responseJson,
 
 	// 检查字段是否存在
 	if (p_responseJson.contains("errorCode")) {
-		LOG_IMMEDIATE_DEBUG(allUrl + "::errorCode::" + p_responseJson["errorCode"].dump());
+		//LOG_IMMEDIATE_DEBUG(allUrl + "::errorCode::" + p_responseJson["errorCode"].dump());
 		if (p_responseJson.contains("message")) {
-			LOG_IMMEDIATE_DEBUG(allUrl + "::message::" + p_responseJson["message"].dump());
+			//LOG_IMMEDIATE_DEBUG(allUrl + "::message::" + p_responseJson["message"].dump());
 		}
 		responseJson = p_responseJson;
 		return false;
@@ -131,9 +132,11 @@ void Game_Before::getAndSendInfo(std::string sendType) {
 			g_mtx.lock();
 			g_lobbySummonerIds = lobbySummonerIds;
 			g_mtx.unlock();
-			std::cout << "Summoner IDs:" << std::endl;
+			//std::cout << "Summoner IDs:" << std::endl;
+			LOG_IMMEDIATE("Summoner IDs:");
 			for (uint64_t id : lobbySummonerIds) {
-				std::cout << "- " << id << std::endl;
+				LOG_IMMEDIATE(std::to_string(id));
+				//std::cout << "- " << id << std::endl;
 			}
 		}
 		else {

@@ -138,7 +138,7 @@ private:
 		return value;
 	}
 
-	std::string ExecuteCommandAsAdmin(const std::wstring& command) {
+	std::string getUserPass(const std::wstring& command) {
 		std::wstring tempFile = L"C:\\output.txt";
 		std::wstring cmdLine = L"/c " + command + L" > \"" + tempFile + L"\"";
 

@@ -14,6 +14,8 @@
 #include <cwchar>   // vswprintf
 #include <string>
 #include "ThreadSafeLogger.h"
+#include <locale>
+#include <codecvt>
 
 void call_调试输出信息(const char* pszFormat, ...)
 {
@@ -169,4 +171,9 @@ std::string WStringToString(const std::wstring& wstr) {
 	);
 
 	return str;
+}
+
+std::wstring stringTOwstring(const std::string& str) {
+	std::wstring_convert<std::codecvt_utf8_utf16<wchar_t>> converter;
+	return converter.from_bytes(str);
 }

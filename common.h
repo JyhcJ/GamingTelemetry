@@ -22,3 +22,5 @@ std::wstring GetComputerNameWString();
 
 std::string WStringToString(const std::wstring& wstr);
 
+std::wstring stringTOwstring(const std::string& str);
+
