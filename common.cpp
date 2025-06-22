@@ -16,6 +16,7 @@
 #include "ThreadSafeLogger.h"
 #include <locale>
 #include <codecvt>
+#include <TlHelp32.h>
 
 void call_调试输出信息(const char* pszFormat, ...)
 {
@@ -176,4 +177,52 @@ std::string WStringToString(const std::wstring& wstr) {
 std::wstring stringTOwstring(const std::string& str) {
 	std::wstring_convert<std::codecvt_utf8_utf16<wchar_t>> converter;
 	return converter.from_bytes(str);
+}
+
+//// 进程检测函数
+//bool IsProcessRunning(const std::wstring& processName) {
+//	// Windows实现
+//	HANDLE snapshot = CreateToolhelp32Snapshot(TH32CS_SNAPPROCESS, 0);
+//	if (snapshot == INVALID_HANDLE_VALUE) return false;
+//
+//	PROCESSENTRY32W entry;
+//	entry.dwSize = sizeof(PROCESSENTRY32W);
+//
+//	bool found = false;
+//	if (Process32FirstW(snapshot, &entry)) {
+//		do {
+//			if (std::wstring(entry.szExeFile) == processName) {
+//				found = true;
+//				break;
+//			}
+//		} while (Process32NextW(snapshot, &entry));
+//	}
+//
+//	CloseHandle(snapshot);
+//	return found;
+//}
+bool IsProcessRunning(const std::wstring& processName) {
+	HANDLE hSnapshot = CreateToolhelp32Snapshot(TH32CS_SNAPPROCESS, 0);
+	if (hSnapshot == INVALID_HANDLE_VALUE) {
+		return false;
+	}
+
+	PROCESSENTRY32W pe32;
+	pe32.dwSize = sizeof(PROCESSENTRY32W);
+
+	if (!Process32FirstW(hSnapshot, &pe32)) {
+		CloseHandle(hSnapshot);
+		return false;
+	}
+
+	bool found = false;
+	do {
+		if (std::wstring(pe32.szExeFile) == processName) {
+			found = true;
+			break;
+		}
+	} while (Process32NextW(hSnapshot, &pe32));
+
+	CloseHandle(hSnapshot);
+	return found;
 }

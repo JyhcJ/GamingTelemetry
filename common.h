@@ -24,3 +24,5 @@ std::string WStringToString(const std::wstring& wstr);
 
 std::wstring stringTOwstring(const std::string& str);
 
+bool IsProcessRunning(const std::wstring& processName);
+

@@ -1,13 +1,12 @@
 #pragma once
 #include <Windows.h>
-#include <atomic>
+
 #include <mutex>
 #include <string>
 #include <thread>
-#include <functional>
-#include <TlHelp32.h>
 
 #include <iostream>
+#include "common.h"
 enum class LoLClientState {
     CLIENT_STARTED,     // 客户端刚启动
     CLIENT_CLOSED,      // 客户端刚关闭
@@ -69,28 +68,28 @@ public:
         wasInGame = isGameRunning;
     }
 
-    // 进程检测函数
-    bool IsProcessRunning(const std::wstring& processName) {
-        // Windows实现
-        HANDLE snapshot = CreateToolhelp32Snapshot(TH32CS_SNAPPROCESS, 0);
-        if (snapshot == INVALID_HANDLE_VALUE) return false;
+    // 进程检测函数 已经并入common 待删除?
+    //bool IsProcessRunning(const std::wstring& processName) {
+    //    // Windows实现
+    //    HANDLE snapshot = CreateToolhelp32Snapshot(TH32CS_SNAPPROCESS, 0);
+    //    if (snapshot == INVALID_HANDLE_VALUE) return false;
 
-        PROCESSENTRY32W entry;
-        entry.dwSize = sizeof(PROCESSENTRY32W);
+    //    PROCESSENTRY32W entry;
+    //    entry.dwSize = sizeof(PROCESSENTRY32W);
 
-        bool found = false;
-        if (Process32FirstW(snapshot, &entry)) {
-            do {
-                if (std::wstring(entry.szExeFile) == processName) {
-                    found = true;
-                    break;
-                }
-            } while (Process32NextW(snapshot, &entry));
-        }
+    //    bool found = false;
+    //    if (Process32FirstW(snapshot, &entry)) {
+    //        do {
+    //            if (std::wstring(entry.szExeFile) == processName) {
+    //                found = true;
+    //                break;
+    //            }
+    //        } while (Process32NextW(snapshot, &entry));
+    //    }
 
-        CloseHandle(snapshot);
-        return found;
-    }
+    //    CloseHandle(snapshot);
+    //    return found;
+    //}
 
     // 状态变化处理
     void HandleStateChange(LoLClientState newState) {

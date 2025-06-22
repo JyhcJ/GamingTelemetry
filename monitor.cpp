@@ -13,6 +13,7 @@
 #include "ThreadSafeLogger.h"
 #include "lol_before.h"
 #include "LoLStateMonitor.h"
+#include "ValStateMonitor.h"
 
 //extern bool lol_running;
 //extern std::string BEFORE_STATE;
@@ -29,32 +30,7 @@ bool is_lol_game_running = false;
 std::string g_hostName;
 double total_lol_time = 0.0;
 
-// 检查指定进程是否在运行
-bool IsProcessRunning(const std::wstring& processName) {
-	HANDLE hSnapshot = CreateToolhelp32Snapshot(TH32CS_SNAPPROCESS, 0);
-	if (hSnapshot == INVALID_HANDLE_VALUE) {
-		return false;
-	}
 
-	PROCESSENTRY32W pe32;
-	pe32.dwSize = sizeof(PROCESSENTRY32W);
-
-	if (!Process32FirstW(hSnapshot, &pe32)) {
-		CloseHandle(hSnapshot);
-		return false;
-	}
-
-	bool found = false;
-	do {
-		if (std::wstring(pe32.szExeFile) == processName) {
-			found = true;
-			break;
-		}
-	} while (Process32NextW(hSnapshot, &pe32));
-
-	CloseHandle(hSnapshot);
-	return found;
-}
 
 // 获取当前时间字符串
 std::string GetCurrentTimeString() {
@@ -264,8 +240,6 @@ void MonitorGameProcess() {
 }
 
 int main() {
-	LoLStateMonitor monitor;
-
 	LOG_IMMEDIATE("DLL监视程序已启动");
 	g_mtx.lock();
 	g_hostName = WStringToString(GetComputerNameWString());
@@ -285,18 +259,31 @@ int main() {
 		//
 		//thread.Detach();
 		LoLStateMonitor monitor;
-
+		ValStateMonitor valMonitor;
+	
+		// 运行线程安全测试
+		//ThreadSafeLogger::GetInstance().TestThreadSafety(100); // 测试5秒
+		// 
+		//ThreadSafeLogger::GetInstance().Log(LogLevel::INFO, "测试完毕!");
+		// 
 		//// 在单独线程中运行监控
-		std::thread monitorThread([&monitor]() {
+		std::thread lolMonitorThread([&monitor]() {
 			monitor.MonitorLoop();
 			});
+
+
+		std::thread valMonitorThread([&valMonitor]() {
+			valMonitor.MonitorLoop();
+			});
+		//monitorThread.detach();
 
 		// 主线程可以做其他事情
 		while (true) {
 			std::this_thread::sleep_for(std::chrono::seconds(10));
 		}
 
-		monitorThread.join();
+		lolMonitorThread.join();
+		valMonitorThread.join();
 
 		//std::thread([&monitor]() {
 		//	monitor.MonitorLoop();

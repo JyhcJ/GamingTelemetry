@@ -6,7 +6,7 @@
 #include "lol.h"
 #include "ThreadWrapper.h"
 #include "lol_before.h"
-#include <TlHelp32.h>
+
 
 
 extern bool is_lol_running;

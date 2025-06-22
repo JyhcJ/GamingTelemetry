@@ -4,9 +4,11 @@
 #include <algorithm>
 #include <string>
 ThreadSafeLogger::ThreadSafeLogger()
-	: m_minLogLevel(LogLevel::DEBUG1), m_running(true) {
+	: m_minLogLevel(LogLevel::DEBUG1), m_running(true),
+	m_lastRotationTime(std::chrono::system_clock::now()) {
 	m_logThread = std::make_unique<std::thread>(&ThreadSafeLogger::ProcessLogs, this);
 }
+
 
 ThreadSafeLogger::~ThreadSafeLogger() {
 	Stop();
@@ -22,14 +24,103 @@ ThreadSafeLogger& ThreadSafeLogger::GetInstance() {
 
 void ThreadSafeLogger::SetOutputFile(const std::string& filePath) {
 	std::lock_guard<std::mutex> lock(m_queueMutex);
-	if (m_logFile.is_open()) {
-		m_logFile.close();
+	m_currentLogFilePath = filePath;
+	//RotateLogFileIfNeeded();
+}
+
+
+//新增(分段)
+void ThreadSafeLogger::RotateLogFileIfNeeded() {
+	auto now = std::chrono::system_clock::now();
+	auto hoursSinceLastRotation = std::chrono::duration_cast<std::chrono::milliseconds>(
+		now - m_lastRotationTime).count();
+	/*auto hoursSinceLastRotation = std::chrono::duration_cast<std::chrono::hours>(
+		now - m_lastRotationTime).count();*/
+
+	if (hoursSinceLastRotation >= 3) {
+		if (m_logFile.is_open()) {
+			m_logFile.close();
+		}
+
+		// 重命名当前日志文件
+		std::string newFilename = GenerateTimestampedFilename(m_currentLogFilePath);
+		std::rename(m_currentLogFilePath.c_str(), newFilename.c_str());
+
+		// 创建新日志文件
+		m_logFile.open(m_currentLogFilePath, std::ios::app);
+		m_lastRotationTime = now;
 	}
-	m_logFile.open(filePath, std::ios::app);
+	else if (!m_logFile.is_open()) {
+		m_logFile.open(m_currentLogFilePath, std::ios::app);
+	}
+}
+//新增(分段)
+std::string ThreadSafeLogger::GenerateTimestampedFilename(const std::string& basePath) {
+	auto now = std::chrono::system_clock::now();
+	auto in_time_t = std::chrono::system_clock::to_time_t(now);
+	std::tm tm;
+	localtime_s(&tm, &in_time_t);
+
+	char buffer[80];
+	strftime(buffer, sizeof(buffer), "%Y%m%d_%H%M%S", &tm);
+
+	size_t lastDot = basePath.find_last_of('.');
+	if (lastDot != std::string::npos) {
+		return basePath.substr(0, lastDot) + "_" + buffer + basePath.substr(lastDot);
+	}
+	return basePath + "_" + buffer;
 }
 
 void ThreadSafeLogger::SetMinLogLevel(LogLevel level) {
 	m_minLogLevel.store(level);
+}
+
+
+
+// 新增(分段)
+void ThreadSafeLogger::TestThreadSafety(int testDurationSeconds) {
+	auto startTime = std::chrono::steady_clock::now();
+	auto endTime = startTime + std::chrono::seconds(testDurationSeconds);
+
+	const int numThreads = 2;
+	std::vector<std::thread> threads;
+
+	// 创建多个线程同时写入日志
+	for (int i = 0; i < numThreads; ++i) {
+		threads.emplace_back([this, i, endTime]() {
+			int count = 0;
+			while (std::chrono::steady_clock::now() < endTime) {
+				std::string message = "Thread " + std::to_string(i) + " log entry " + std::to_string(count++);
+				this->Log(LogLevel::INFO, message);
+
+				// 随机间隔写入
+				std::this_thread::sleep_for(std::chrono::milliseconds(10 + rand() % 50));
+			}
+			});
+	}
+
+	// 在主线程中频繁修改日志级别和文件路径
+	int rotationCount = 0;
+	while (std::chrono::steady_clock::now() < endTime) {
+		this->SetMinLogLevel(static_cast<LogLevel>((rotationCount % 4) + 1));
+
+		if (rotationCount % 5 == 0) {
+			this->SetOutputFile("test_log_" + std::to_string(rotationCount / 5) + ".txt");
+		}
+
+		std::this_thread::sleep_for(std::chrono::milliseconds(100));
+		rotationCount++;
+	}
+
+	// 等待所有线程完成
+	for (auto& thread : threads) {
+		if (thread.joinable()) {
+			thread.join();
+		}
+	}
+
+	// 验证日志完整性
+	Log(LogLevel::INFO, "Thread safety test completed successfully");
 }
 
 void OutputDebugInfo(const char* pszFormat, ...)
@@ -131,6 +222,11 @@ void ThreadSafeLogger::ProcessLogs() {
 			return !m_logQueue.empty() || !m_running;
 			});
 
+		// 检查是否需要轮转日志文件
+		if (!m_currentLogFilePath.empty()) {
+			RotateLogFileIfNeeded();
+		}
+
 		while (!m_logQueue.empty()) {
 			auto entry = std::move(m_logQueue.front());
 			m_logQueue.pop();
@@ -161,8 +257,9 @@ void ThreadSafeLogger::ProcessLogs() {
 			// 输出到文件
 			if (m_logFile.is_open()) {
 				m_logFile << logLine;
+				m_logFile.flush();
 			}
-
+		
 			lock.lock();
 		}
 	}

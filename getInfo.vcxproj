@@ -24,6 +24,7 @@
     <ProjectGuid>{92149486-2c5f-427a-88c7-901fee8e810c}</ProjectGuid>
     <RootNamespace>getInfo</RootNamespace>
     <WindowsTargetPlatformVersion>10.0</WindowsTargetPlatformVersion>
+    <ProjectName>getInfo</ProjectName>
   </PropertyGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'" Label="Configuration">
@@ -145,6 +146,7 @@
     <ClInclude Include="common.h" />
     <ClInclude Include="constant.h" />
     <ClInclude Include="DebugTryCatch.h" />
+    <ClInclude Include="dllmain.h" />
     <ClInclude Include="framework.h" />
     <ClInclude Include="HttpClient.h" />
     <ClInclude Include="lol.h" />
@@ -154,6 +156,8 @@
     <ClInclude Include="pch.h" />
     <ClInclude Include="ThreadSafeLogger.h" />
     <ClInclude Include="ThreadWrapper.h" />
+    <ClInclude Include="val.h" />
+    <ClInclude Include="ValStateMonitor.h" />
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="common.cpp" />
@@ -174,6 +178,8 @@
     <ClCompile Include="test.cpp" />
     <ClCompile Include="ThreadSafeLogger.cpp" />
     <ClCompile Include="ThreadWrapper.cpp" />
+    <ClCompile Include="val.cpp" />
+    <ClCompile Include="ValStateMonitor.cpp" />
   </ItemGroup>
   <ItemGroup>
     <Text Include="gametype.txt" />
