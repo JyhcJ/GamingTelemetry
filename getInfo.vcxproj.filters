@@ -63,6 +63,12 @@
     <ClInclude Include="dllmain.h">
       <Filter>头文件</Filter>
     </ClInclude>
+    <ClInclude Include="py.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="CurlUtils.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="dllmain.cpp">
@@ -108,6 +114,12 @@
       <Filter>源文件</Filter>
     </ClCompile>
     <ClCompile Include="ValStateMonitor.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="py.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="CurlUtils.cpp">
       <Filter>源文件</Filter>
     </ClCompile>
   </ItemGroup>

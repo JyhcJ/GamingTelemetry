@@ -26,3 +26,11 @@ std::wstring stringTOwstring(const std::string& str);
 
 bool IsProcessRunning(const std::wstring& processName);
 
+bool is_file_exists_and_not_empty(const std::string& filename);
+
+std::string preprocess_mitm_text(const std::string& input);
+
+std::string unescape_json_string(const std::string& input);
+
+void remove_control_chars(std::string& s);
+

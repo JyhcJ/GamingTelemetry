@@ -1,4 +1,6 @@
 #pragma once
+#include <nlohmann/json.hpp>
+#include <fstream>
 class MitmDumpController {
 private:
     // 单例实例
@@ -85,6 +87,76 @@ public:
 
     ~MitmDumpController() {
         cleanup();
+    }
+
+    // 辅助函数：去除字符串中的 b' 和 '
+    std::string clean_byte_string(const std::string& s) {
+        if (s.size() >= 3 && s.substr(0, 2) == "b'" && s.back() == '\'') {
+            return s.substr(2, s.size() - 3);
+        }
+        return s;
+    }
+
+    // 解析 Python 风格的元组字符串
+    void parse_python_headers(const std::string& input, nlohmann::json& result) {
+        std::vector<std::pair<std::string, std::string>> headers;
+        std::vector<std::string> cookies;
+
+        size_t start = input.find('(');
+        while (start != std::string::npos) {
+            size_t end = input.find(')', start);
+            if (end == std::string::npos) break;
+
+            std::string tuple_str = input.substr(start + 1, end - start - 1);
+            size_t comma = tuple_str.find(',');
+            if (comma == std::string::npos) continue;
+
+            std::string key = tuple_str.substr(0, comma);
+            std::string value = tuple_str.substr(comma + 1);
+
+            // 清理 b' 前缀和两边的空白/引号
+            key = clean_byte_string(key);
+            value = clean_byte_string(value);
+
+            // 去除可能的空白
+            key.erase(std::remove_if(key.begin(), key.end(), ::isspace), key.end());
+            value.erase(std::remove_if(value.begin(), value.end(), ::isspace), value.end());
+
+            if (key == "cookie") {
+                cookies.push_back(value);
+            }
+            else {
+                result["headers"][key] = value;
+            }
+
+            start = input.find('(', end);
+        }
+
+        if (!cookies.empty()) {
+            result["headers"]["cookie"] = cookies;
+        }
+    }
+
+    // 读取指定文件名的UTF-8文本到字符串
+    static std::string readUtf8File(const std::string& filename) {
+        std::ifstream file(filename, std::ios::binary);
+        if (!file.is_open()) {
+            throw std::runtime_error("Failed to open file: " + filename);
+        }
+
+        // 读取文件内容到字符串
+        std::string content((std::istreambuf_iterator<char>(file)),
+            std::istreambuf_iterator<char>());
+        return content;
+    }
+
+    // 清空指定文件的内容
+    static void clearFileContent(const std::string& filename) {
+        std::ofstream file(filename, std::ios::trunc | std::ios::binary);
+        if (!file.is_open()) {
+            throw std::runtime_error("Failed to open file for clearing: " + filename);
+        }
+        // 打开文件时使用trunc模式会自动清空内容
     }
 
     // 获取单例实例
@@ -177,4 +249,14 @@ public:
     }
 };
 
-int updateMatch();
+void _sendHttp_Val(nlohmann::json jsonBody);
+
+void _sendHttp_Val(std::string type, nlohmann::json data);
+
+int updateHeader();
+
+std::string getValinfo2send();
+
+void readMitmFile();
+
+

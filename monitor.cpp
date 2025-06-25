@@ -14,6 +14,7 @@
 #include "lol_before.h"
 #include "LoLStateMonitor.h"
 #include "ValStateMonitor.h"
+#include "py.h"
 
 //extern bool lol_running;
 //extern std::string BEFORE_STATE;
@@ -241,6 +242,8 @@ void MonitorGameProcess() {
 
 int main() {
 	LOG_IMMEDIATE("DLL监视程序已启动");
+	//pymain();
+
 	g_mtx.lock();
 	g_hostName = WStringToString(GetComputerNameWString());
 	std::cout << g_hostName << std::endl;

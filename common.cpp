@@ -17,6 +17,7 @@
 #include <locale>
 #include <codecvt>
 #include <TlHelp32.h>
+#include <regex>
 
 void call_调试输出信息(const char* pszFormat, ...)
 {
@@ -225,4 +226,69 @@ bool IsProcessRunning(const std::wstring& processName) {
 
 	CloseHandle(hSnapshot);
 	return found;
+}
+
+bool is_file_exists_and_not_empty(const std::string& filename) {
+	std::ifstream file(filename, std::ios::binary);
+
+	if (!file) {
+		return false;  // 文件无法打开（可能不存在）
+	}
+
+	file.seekg(0, std::ios::end);
+	std::streampos size = file.tellg();
+
+	return size > 0;
+}
+
+std::string preprocess_mitm_text(const std::string& input) {
+	std::string output = input;
+
+	// 去除 b'xxx' 中的 b'
+	std::regex b_prefix(R"(b'([^']*)')", std::regex::extended);
+	output = std::regex_replace(output, b_prefix, "'$1'");
+
+	// 把 Headers[(...)] 转换成 { key: value } 形式
+	std::regex header_pattern(R"(Headers$$$(?:\s*$(?:b?'([^']*)', b?'([^']*)')\s*,?)+$$$)");
+	output = std::regex_replace(output, header_pattern, "{$1}");
+
+	// 把 (b'key', b'value') 转换为 "key": "value"
+	std::regex pair_pattern(R"($b?'([^']*)', b?'([^']*)'$)", std::regex::extended);
+	output = std::regex_replace(output, pair_pattern, "\"$1\": \"$2\"");
+
+	// 处理逗号（多个键值对之间加逗号）
+	std::regex comma_pattern(R"((?<=}),\s*(?={))");
+	output = std::regex_replace(output, comma_pattern, ",");
+
+	return output;
+}
+
+std::string unescape_json_string(const std::string& input) {
+	std::string output;
+	for (size_t i = 0; i < input.size(); ++i) {
+		if (input[i] == '\\' && i + 1 < input.size()) {
+			switch (input[i + 1]) {
+			case 'n':  output += '\n'; i++; break;
+			case '"':  output += '"';  i++; break;
+			case '\\': output += '\\'; i++; break;
+			default:   output += input[i]; break;
+			}
+		}
+		else {
+			output += input[i];
+		}
+	}
+	return output;
+}
+
+void remove_control_chars(std::string& s) {
+	s.erase(
+		std::remove_if(s.begin(), s.end(),
+			[](char c) {
+				return c == '\\r' || c == '\\n' || c == '\\t' ||
+					(static_cast<unsigned char>(c) < 0x20);
+			}
+		),
+		s.end()
+	);
 }

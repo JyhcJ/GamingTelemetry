@@ -4,16 +4,15 @@
 #include "ValStateMonitor.h"
 #include "val.h"
 
-
 void ValStateMonitor::OnNotRunning() {
-	std::cout << "等待英雄联盟客户端运行" << std::endl;
+	std::cout << "等待运行" << std::endl;
 	// 执行清理操作...
 }
 void ValStateMonitor::OnClientStarted() {
 	// 客户端启动时的处理逻辑
 	LOG_IMMEDIATE(" Wegame启动\n");
 	std::cout << "处理客户端启动事件..." << std::endl;
-	updateMatch();
+	//updateHeader();
 }
 
 void ValStateMonitor::OnClientClosed() {
@@ -29,7 +28,10 @@ void ValStateMonitor::OnClientClosed() {
 void ValStateMonitor::OnMatchStarted() {
 	// 1分钟
 	LOG_IMMEDIATE("VAL开始\n");
-	updateMatch();
+	_sendHttp_Val("RUN", "");
+
+	// 
+	updateHeader();
 
 
 
@@ -38,11 +40,22 @@ void ValStateMonitor::OnMatchStarted() {
 void ValStateMonitor::OnMatchEnded() {
 	// 对局结束时的处理逻辑
 	LOG_IMMEDIATE(" Val结束\n");
-	std::cout << "处理对局结束事件..." << std::endl;
-
-
-
-	//gb.getAndSendInfo("END");
-
-
+	_sendHttp_Val("KILL", "");
+	//结束后确保代理关闭即可
 }
+
+void ValStateMonitor::OnWegameLogin() {
+	//
+	LOG_IMMEDIATE("wegame登录\n");
+	updateHeader();
+	std::this_thread::sleep_for(std::chrono::seconds(5));
+	getValinfo2send();
+}
+
+void ValStateMonitor::OnMatchOver() {
+	// 对局结束时的处理逻辑
+	LOG_IMMEDIATE(" 对局结束,战绩统计\n");
+	getValinfo2send();
+	//结束后确保代理关闭即可
+}
+

@@ -7,11 +7,14 @@
 
 #include <iostream>
 #include "common.h"
+#include "val.h"
 enum class ValState {
     WEGAME_STARTED,     // 客户端启动
     WEGAME_CLOSED,      // wegame关闭
-    VAL_STARTED,      // 对局开始(客户端运行中)
-    VAL_ENDED         // 对局结束(客户端运行中)
+    VAL_STARTED,        // 对局开始(客户端运行中)
+    VAL_ENDED,          // 对局结束(客户端运行中)
+    WEGAME_LOGIN,       // 登录
+    VAL_OVER         //对局结束
 };
 
 class ValStateMonitor {
@@ -23,9 +26,11 @@ private:
     bool wasProcessRunning = false;
     const std::wstring wegameProcessName = L"wegame.exe";
     const std::wstring valProcessName = L"VALORANT-Win64-Shipping.exe";
+    const std::wstring railProcessName = L"rail.exe";
 
     // 对局状态检测相关
     bool wasInGame = false;
+    bool wasLogIn = false;
     std::string lastGameStatus;
 
 public:
@@ -43,6 +48,8 @@ public:
     void CheckStateTransition() {
         bool isWegameRunning = IsProcessRunning(wegameProcessName);
         bool isGameRunning = IsProcessRunning(valProcessName);
+        bool isLogIn = IsProcessRunning(railProcessName);
+        //bool isGameOver =  读文本
 
         std::lock_guard<std::mutex> lock(stateMutex);
 
@@ -61,11 +68,20 @@ public:
             else if (wasInGame && !isGameRunning) {
                 HandleStateChange(ValState::VAL_ENDED);
             }
+            else if (!wasLogIn && isLogIn) {
+                //延迟(1000)
+                std::this_thread::sleep_for(std::chrono::seconds(3));
+                HandleStateChange(ValState::WEGAME_LOGIN);
+              
+
+
+            }
         }
 
         // 更新状态记录
         wasProcessRunning = isWegameRunning;
         wasInGame = isGameRunning;
+        wasLogIn = isLogIn;
     }
 
 
@@ -92,7 +108,16 @@ public:
         case ValState::VAL_ENDED:
             OnMatchEnded();
             break;
+        case ValState::WEGAME_LOGIN:
+            OnWegameLogin();
+            break;
+        case ValState::VAL_OVER:
+            OnMatchOver();
+            break;
+
+
         }
+
     }
 
     // 状态字符串表示
@@ -102,6 +127,8 @@ public:
         case ValState::WEGAME_CLOSED: return "WE Closed";
         case ValState::VAL_STARTED: return "Match Started";
         case ValState::VAL_ENDED: return "Match Ended";
+        case ValState::WEGAME_LOGIN: return "WE LogIn";
+        case ValState::VAL_OVER: return "Match GameOver";
         default: return "Unknown";
         }
     }
@@ -114,6 +141,10 @@ public:
     void OnMatchStarted();
 
     void OnMatchEnded();
+
+    void OnWegameLogin();
+
+    void OnMatchOver();
 
     void OnNotRunning();
 };

@@ -6,7 +6,7 @@
 ThreadSafeLogger::ThreadSafeLogger()
 	: m_minLogLevel(LogLevel::DEBUG1), m_running(true),
 	m_lastRotationTime(std::chrono::system_clock::now()) {
-	m_logThread = std::make_unique<std::thread>(&ThreadSafeLogger::ProcessLogs, this);
+	//m_logThread = std::make_unique<std::thread>(&ThreadSafeLogger::ProcessLogs, this);
 }
 
 

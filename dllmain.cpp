@@ -12,12 +12,14 @@ BOOL APIENTRY DllMain(HMODULE hModule,
 	LPVOID lpReserved
 )
 {
+	ThreadSafeLogger::GetInstance().SetOutputFile("monitor111.log");
+
 	//SetConsoleOutputCP(CP_UTF8);
 	switch (ul_reason_for_call)
 	{
 	case DLL_PROCESS_ATTACH:
 		// 设置日志输出到文件
-		ThreadSafeLogger::GetInstance().SetOutputFile("monitor.log");
+		
 
 	#ifdef _DEBUG
 	// Debug 模式

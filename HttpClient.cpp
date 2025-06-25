@@ -1,7 +1,11 @@
 #include "pch.h"
 #include "HttpClient.h"
 #include <sstream>
-//
+
+#include <nlohmann/json.hpp>
+#include "common.h"
+#include <iostream>
+
 HttpClient::HttpClient() {
 	// 初始化WinHTTP会话
 	m_hSession = WinHttpOpen(
@@ -93,6 +97,7 @@ std::string HttpClient::SendRequest(
 	HINTERNET hConnect = NULL;
 	HINTERNET hRequest = NULL;
 	std::string response;
+
 
 	try {
 		// 1. 解析URL
@@ -233,6 +238,42 @@ std::string HttpClient::SendRequest(
 	if (hConnect) WinHttpCloseHandle(hConnect);
 
 	return response;
+}
+
+
+std::map<std::wstring, std::wstring> JsonToWStringMap(const nlohmann::json& j)
+{
+	std::map<std::wstring, std::wstring> result;
+
+	if (j.is_object()) {
+		for (auto it = j.begin(); it != j.end(); ++it) {
+			std::string key = it.key();
+			std::string value = it.value().get<std::string>();
+			result[stringTOwstring(key)] = stringTOwstring(value);
+		}
+	}
+
+	return result;
+}
+std::string HttpClient::SendRequest(
+	const std::wstring& url,
+	const std::wstring& method,
+	const std::string& headersJsonStr,  // 使用 json 类型
+	const std::string& body,
+	bool userPass,
+	const std::wstring& pathAdd
+) {
+	nlohmann::json headersJson = nlohmann::json::parse(headersJsonStr, nullptr, false);
+	// 将 json 转换为 map<wstring, wstring>
+	std::map<std::wstring, std::wstring> headers = JsonToWStringMap(headersJson);
+
+	// 使用基于范围的 for 循环
+	for (const auto& pair : headers) {
+		std::wcout << L"==================Key: " << pair.first << L", Value: " << pair.second << std::endl;
+	}
+
+	// 调用原始函数
+	return SendRequest(url, method, headers, body, userPass, pathAdd);
 }
 
 

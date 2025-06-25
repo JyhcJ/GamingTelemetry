@@ -1,10 +1,11 @@
 #pragma once
-#pragma once
 #include <windows.h>
 #include <winhttp.h>
 #include <string>
 #include <map>
 #include <vector>
+
+#include<nlohmann/json.hpp>
 
 #pragma comment(lib, "winhttp.lib")
 
@@ -28,6 +29,9 @@ public:
 		const std::wstring&  addPath = L""
 	);
 
+	std::string SendRequest(const std::wstring& url, const std::wstring& method, const std::string& headersJsonStr, const std::string& body, bool userPass = false, const std::wstring& pathAdd = L"");
+
+	
 private:
 	HINTERNET m_hSession;  // WinHTTP»á»°¾ä±ú
 

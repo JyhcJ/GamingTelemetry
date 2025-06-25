@@ -74,6 +74,25 @@ static std::map<std::string, std::string> LOL_rankAPIMap = {
 		{"CHALLENGER", "ZUI_QIANG_WANG_ZHE"}
 };
 
+static std::map<std::string, std::string> VAL_gameModMap = {
+	{"unrated", "BOMB"},//普通模式
+	{"competitive", "RANK"},//竞技模式
+	{"swiftplay", "SWIFTPLAY"},//快速模式
+	{"spikerush", "QUICK_BOMB"},//爆能快攻
+	{"deathmatch", "DEATHMATCH"},//死斗模式
+	{"ggteam", "SWIFTPLAY"},//极速模式
+	{"onefa", "ONE_FOR_ALL"},//复制战士
+	{"snowball", "SNOWBALL_FIGHT"},//雪球大战
+	{"premier","冠军赛"},//冠军赛
+	{"custom","CUSTOM"},//自定义游戏
+	{"practice","射击训练"},//射击训练
+	{"newplayer","新手教程"},//新手教程
+	{"hurms","HURM"},//团队死斗
+	{"",""},//GUN_GAME武装升级
+
+};
+
+//BOMB=普通模式,DEATHMATCH=乱斗模式,GUN_GAME=武装升级,ONE_FOR_ALL=克隆模式,QUICK_BOMB=爆能快攻,SNOWBALL_FIGHT=雪球大战,SWIFTPLAY=极速模式,HURM=团队乱斗,CUSTOM=自定义,RANK=竞技模式
 //std::unordered_map<std::string, int> rankLevel = {
 //{"NA", 0},
 //{"IRON", 1},

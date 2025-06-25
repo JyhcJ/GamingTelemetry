@@ -90,7 +90,7 @@ const int POLL_INTERVAL = 5;
 //const std::wstring LCU_URL = L"https://127.0.0.1:2999/liveclientdata/eventdata";
 const std::wstring LCU_URL = L"https://127.0.0.1:2999/liveclientdata/allgamedata";
 const std::wstring NAME_URL = L"https://127.0.0.1:2999/liveclientdata/activeplayername";
-static std::map<std::wstring, std::wstring> HEADERS = {
+std::map<std::wstring, std::wstring> HEADERS = {
 	/*	{ L"Content-Type", L"application/json" },
 		{ L"User-Agent", L"Mozilla/5.0" },
 		{ L"token", L"{{bToken}}" },*/
@@ -659,35 +659,7 @@ void _sendHttp_LOL(PostGameData pgd) {
 	}
 }
 // 向发送信息 (主要用于客户端启动结束)
-void _sendHttp_LOL(std::string type, nlohmann::json data) {
-	HttpClient http;
-	nlohmann::json jsonBody;
-	jsonBody["type"] = type;
-	jsonBody["name"] = "LOL";
-	LOG_IMMEDIATE(jsonBody.dump());
-	try {
-		// 3. 发送POST请求
-		g_mtx_header.lock();
-		std::string response = http.SendRequest(
-			L"https://dev-asz.cjmofang.com/api/client/PostGameData",
-			L"POST",
-			HEADERS,
-			jsonBody.dump()
-		);
-		g_mtx_header.unlock();
 
-		LOG_IMMEDIATE("Response: " + UTF8ToGBK(response));
-	}
-	catch (const std::exception& e) {
-		//std::cerr << "Error: " << e.what() << std::endl;
-		LOG_IMMEDIATE_ERROR("_sendHttp_LOL:::");
-		LOG_IMMEDIATE_ERROR(e.what());
-	}
-
-	catch (...) {  // 捕获其他所有异常
-		LOG_IMMEDIATE_ERROR("_sendHttp_LOL :::Unknown exception occurred");
-	}
-}
 // 向发送信息 (主要用于对局结束后 对局中)
 void _sendHttp_LOL(nlohmann::json jsonBody) {
 	HttpClient http;
@@ -715,6 +687,14 @@ void _sendHttp_LOL(nlohmann::json jsonBody) {
 	}
 }
 
+void _sendHttp_LOL(std::string type, nlohmann::json data) {
+	// data留着吧
+	nlohmann::json jsonBody;
+	jsonBody["type"] = type;
+	jsonBody["name"] = "LOL";
+	_sendHttp_LOL(jsonBody);
+
+}
 //extern "C" __declspec(dllexport) const char* GetPlayerName() {
 //	return playerName.c_str();
 //}
@@ -727,7 +707,7 @@ extern "C" __declspec(dllexport) int Add(int a, int b) {
 
 
 extern "C" __declspec(dllexport) const int setHeader(const char* token1, const char* manufactureId1, const char* barId1) {
-	
+
 	std::lock_guard<std::mutex> lock(g_mtx_header);
 	std::string token = (token1 != nullptr) ? token1 : "";
 	std::string manufactureId = (manufactureId1 != nullptr) ? manufactureId1 : "";
