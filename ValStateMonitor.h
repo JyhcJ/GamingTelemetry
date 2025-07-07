@@ -14,7 +14,8 @@ enum class ValState {
     VAL_STARTED,        // 对局开始(客户端运行中)
     VAL_ENDED,          // 对局结束(客户端运行中)
     WEGAME_LOGIN,       // 登录
-    VAL_OVER         //对局结束
+    VAL_OVER,           // 对局结束
+    WEGAME_INLOGIN      // 登录中
 };
 
 class ValStateMonitor {
@@ -49,9 +50,12 @@ public:
         bool isWegameRunning = IsProcessRunning(wegameProcessName);
         bool isGameRunning = IsProcessRunning(valProcessName);
         bool isLogIn = IsProcessRunning(railProcessName);
-        //bool isGameOver =  读文本
+        //bool isGameOver = 单独控制?
 
-        std::lock_guard<std::mutex> lock(stateMutex);
+
+        //bool isGameOver =  读文本
+        
+        //std::lock_guard<std::mutex> lock(stateMutex);
 
         // 状态转换逻辑
         if (!wasProcessRunning && isWegameRunning) {
@@ -72,9 +76,9 @@ public:
                 //延迟(1000)
                 std::this_thread::sleep_for(std::chrono::seconds(3));
                 HandleStateChange(ValState::WEGAME_LOGIN);
-              
-
-
+            }
+            else if (wasLogIn && !isLogIn) {
+                HandleStateChange(ValState::WEGAME_INLOGIN);
             }
         }
 
@@ -114,10 +118,10 @@ public:
         case ValState::VAL_OVER:
             OnMatchOver();
             break;
-
-
+        case ValState::WEGAME_INLOGIN:
+            OnMatchOver();
+            break;
         }
-
     }
 
     // 状态字符串表示
@@ -129,6 +133,7 @@ public:
         case ValState::VAL_ENDED: return "Match Ended";
         case ValState::WEGAME_LOGIN: return "WE LogIn";
         case ValState::VAL_OVER: return "Match GameOver";
+        case ValState::WEGAME_INLOGIN: return "WE InLogin";
         default: return "Unknown";
         }
     }
@@ -147,4 +152,6 @@ public:
     void OnMatchOver();
 
     void OnNotRunning();
+
+    void OnInLogin();
 };

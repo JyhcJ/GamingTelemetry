@@ -1,23 +1,19 @@
 #include "pch.h"
 #include "common.h"
-
 #include <stdio.h>
-
 #include <windows.h>
 #include <cstdarg>  // 可变参数支持
 #include <cstdio>   // vsnprintf
-
-// 类似 printf，但输出到 DebugView
-
-#include <windows.h>
-#include <cstdarg>
-#include <cwchar>   // vswprintf
 #include <string>
 #include "ThreadSafeLogger.h"
 #include <locale>
 #include <codecvt>
 #include <TlHelp32.h>
 #include <regex>
+#include <Shlwapi.h>
+#include <map>
+
+
 
 void call_调试输出信息(const char* pszFormat, ...)
 {
@@ -107,6 +103,40 @@ std::string UTF8ToGBK(const std::string& strUTF8) {
 	return result;
 }
 
+
+std::string WStringToGBK(const std::wstring& wstr) {
+	if (wstr.empty()) return "";
+
+	// 宽字符(UTF-16) 直接转 GBK
+	int gbkSize = WideCharToMultiByte(
+		936,                    // GBK代码页(简体中文)
+		0,                      // 无特殊标志
+		wstr.c_str(),           // 宽字符串
+		(int)wstr.length(),     // 字符串长度(不包括NULL)
+		NULL,                   // 不接收输出
+		0,                      // 查询所需缓冲区大小
+		NULL, NULL              // 使用默认字符
+	);
+
+	if (gbkSize <= 0) {
+		return "";
+	}
+
+	std::string strGBK(gbkSize, 0);
+	int result = WideCharToMultiByte(
+		936, 0,
+		wstr.c_str(), (int)wstr.length(),
+		&strGBK[0], gbkSize,
+		NULL, NULL
+	);
+
+	if (result <= 0) {
+		return "";
+	}
+
+	return strGBK;
+}
+
 std::string TCHARToString(const TCHAR* tcharStr) {
 #ifdef UNICODE
 	// 如果是 Unicode（TCHAR = wchar_t），需要转换
@@ -150,27 +180,33 @@ std::wstring GetComputerNameWString() {
 std::string WStringToString(const std::wstring& wstr) {
 	if (wstr.empty()) return std::string();
 
+	// 第一步：计算所需缓冲区大小
 	int size_needed = WideCharToMultiByte(
-		CP_UTF8,                // 使用 UTF-8 编码
-		0,                     // 无特殊标志
+		CP_UTF8,                // UTF-8 编码
+		0,                      // 无特殊标志
 		wstr.c_str(),           // 输入宽字符串
-		(int)wstr.size(),      // 字符串长度（不包括 NULL）
-		NULL,                  // 输出缓冲区（NULL 表示计算所需大小）
-		0,                     // 输出缓冲区大小
-		NULL, NULL             // 默认字符和是否使用默认字符
+		(int)wstr.length(),     // 字符串长度（不包括 NULL）
+		NULL,                   // 输出缓冲区（NULL 表示计算所需大小）
+		0,                      // 输出缓冲区大小
+		NULL, NULL              // 默认字符和是否使用默认字符
 	);
 
 	if (size_needed <= 0) {
 		return "";  // 转换失败
 	}
 
+	// 第二步：实际转换
 	std::string str(size_needed, 0);
-	WideCharToMultiByte(
+	int result = WideCharToMultiByte(
 		CP_UTF8, 0,
-		wstr.c_str(), (int)wstr.size(),
+		wstr.c_str(), (int)wstr.length(),
 		&str[0], size_needed,
 		NULL, NULL
 	);
+
+	if (result <= 0) {
+		return "";  // 转换失败
+	}
 
 	return str;
 }
@@ -292,3 +328,275 @@ void remove_control_chars(std::string& s) {
 		s.end()
 	);
 }
+
+DWORD FindProcessId(const std::wstring& processName) {
+	HANDLE hSnapshot = CreateToolhelp32Snapshot(TH32CS_SNAPPROCESS, 0);
+	if (hSnapshot == INVALID_HANDLE_VALUE) {
+		return 0;
+	}
+
+	PROCESSENTRY32W pe32;
+	pe32.dwSize = sizeof(PROCESSENTRY32W);
+
+	if (Process32FirstW(hSnapshot, &pe32)) {
+		do {
+			if (std::wstring(pe32.szExeFile) == processName) {
+				CloseHandle(hSnapshot);
+				return pe32.th32ProcessID;
+			}
+		} while (Process32NextW(hSnapshot, &pe32));
+	}
+
+	CloseHandle(hSnapshot);
+	return 0;
+}
+
+bool IsDllInjected(DWORD pid, const std::wstring& dllName) {
+	HANDLE hSnapshot = CreateToolhelp32Snapshot(TH32CS_SNAPMODULE, pid);
+	MODULEENTRY32W me32 = { sizeof(me32) };
+
+	if (Module32FirstW(hSnapshot, &me32)) {
+		do {
+			if (_wcsicmp(me32.szModule, dllName.c_str()) == 0) {
+				CloseHandle(hSnapshot);
+				return true;
+			}
+		} while (Module32NextW(hSnapshot, &me32));
+	}
+
+	CloseHandle(hSnapshot);
+	return false;
+}
+
+bool CheckFileExistsWinAPI(const std::wstring& filePath) {
+	DWORD attrib = GetFileAttributesW(filePath.c_str());
+	return (attrib != INVALID_FILE_ATTRIBUTES &&
+		!(attrib & FILE_ATTRIBUTE_DIRECTORY));
+}
+std::wstring GetModuleDir() {
+	wchar_t path[MAX_PATH] = { 0 };
+	GetModuleFileNameW(NULL, path, MAX_PATH);
+
+	// 移除文件名，只保留目录
+	PathRemoveFileSpecW(path);
+
+	// 确保路径以 `\` 结尾
+	std::wstring dirPath(path);
+	if (!dirPath.empty() && dirPath.back() != L'\\') {
+		dirPath += L'\\';
+	}
+
+	return dirPath;
+}
+
+std::wstring GetDllFullPath(const std::wstring& dllName) {
+	return GetModuleDir() + dllName;
+}
+// 将错误码转换为可读的错误信息
+std::wstring GetLastErrorString(DWORD errorCode = 0) {
+	if (errorCode == 0) {
+		errorCode = GetLastError();
+	}
+
+	LPWSTR messageBuffer = nullptr;
+	DWORD bufferLength = FormatMessageW(
+		FORMAT_MESSAGE_ALLOCATE_BUFFER |
+		FORMAT_MESSAGE_FROM_SYSTEM |
+		FORMAT_MESSAGE_IGNORE_INSERTS,
+		NULL,
+		errorCode,
+		MAKELANGID(LANG_NEUTRAL, SUBLANG_DEFAULT),
+		(LPWSTR)&messageBuffer,
+		0,
+		NULL);
+
+	std::wstring message;
+	if (bufferLength != 0) {
+		message = messageBuffer;
+	}
+	else {
+		message = L"未知错误 (错误码: " + std::to_wstring(errorCode) + L")";
+	}
+
+	if (messageBuffer) {
+		LocalFree(messageBuffer);
+	}
+
+	// 移除末尾的换行符
+	if (!message.empty() && message.back() == L'\n') {
+		message.pop_back();
+	}
+	if (!message.empty() && message.back() == L'\r') {
+		message.pop_back();
+	}
+
+	return message;
+}
+bool _InjectDll(DWORD pid, const std::wstring& dllPath) {
+	// 打开目标进程
+	HANDLE hProcess = OpenProcess(PROCESS_ALL_ACCESS, FALSE, pid);
+	// 检查进程架构匹配
+	BOOL isTarget64 = FALSE;
+	BOOL isInjector64 = FALSE;
+	IsWow64Process(hProcess, &isTarget64);
+	IsWow64Process(GetCurrentProcess(), &isInjector64);
+
+	if (isTarget64 != isInjector64) {
+		MessageBoxW(NULL, L"32/64位架构不匹配", L"错误", MB_OK);
+		return false;
+	}
+	if (!hProcess) {
+		DWORD err = GetLastError();
+		std::wstring msg = L"OpenProcess 失败 (" + std::to_wstring(err) + L"): " + GetLastErrorString(err);
+		MessageBoxW(NULL, msg.c_str(), NULL, MB_OK);
+		return false;
+	}
+
+	// 分配远程内存
+	LPVOID remoteStr = VirtualAllocEx(hProcess, NULL, (dllPath.size() + 1) * sizeof(wchar_t),
+		MEM_COMMIT, PAGE_READWRITE);
+	if (!remoteStr) {
+		DWORD err = GetLastError();
+		std::wstring msg = L"VirtualAllocEx 失败 (" + std::to_wstring(err) + L"): " + GetLastErrorString(err);
+		MessageBoxW(NULL, msg.c_str(), NULL, MB_OK);
+		CloseHandle(hProcess);
+		return false;
+	}
+
+	// 写入DLL路径
+	if (!WriteProcessMemory(hProcess, remoteStr, dllPath.c_str(),
+		(dllPath.size() + 1) * sizeof(wchar_t), NULL)) {
+		DWORD err = GetLastError();
+		std::wstring msg = L"WriteProcessMemory 失败 (" + std::to_wstring(err) + L"): " + GetLastErrorString(err);
+		MessageBoxW(NULL, msg.c_str(), NULL, MB_OK);
+		VirtualFreeEx(hProcess, remoteStr, 0, MEM_RELEASE);
+		CloseHandle(hProcess);
+		return false;
+	}
+
+	// 获取LoadLibraryW地址
+	HMODULE hKernel32 = GetModuleHandleW(L"kernel32.dll");
+	FARPROC pLoadLibraryW = GetProcAddress(hKernel32, "LoadLibraryW");
+	if (!pLoadLibraryW) {
+		DWORD err = GetLastError();
+		std::wstring msg = L"GetProcAddress 失败 (" + std::to_wstring(err) + L"): " + GetLastErrorString(err);
+		MessageBoxW(NULL, msg.c_str(), NULL, MB_OK);
+		VirtualFreeEx(hProcess, remoteStr, 0, MEM_RELEASE);
+		CloseHandle(hProcess);
+		return false;
+	}
+
+	// 创建远程线程
+	HANDLE hThread = CreateRemoteThread(hProcess, NULL, 0,
+		(LPTHREAD_START_ROUTINE)pLoadLibraryW, remoteStr, 0, NULL);
+	if (!hThread) {
+		DWORD err = GetLastError();
+		std::wstring msg = L"CreateRemoteThread 失败 (" + std::to_wstring(err) + L"): " + GetLastErrorString(err);
+		MessageBoxW(NULL, msg.c_str(), NULL, MB_OK);
+		VirtualFreeEx(hProcess, remoteStr, 0, MEM_RELEASE);
+		CloseHandle(hProcess);
+		return false;
+	}
+
+	// 等待线程结束
+	WaitForSingleObject(hThread, INFINITE);
+
+	// 检查加载结果
+	DWORD exitCode = 0;
+	GetExitCodeThread(hThread, &exitCode);
+
+	if (exitCode == 0) {
+		DWORD targetErr = 0;
+		std::wstring msg;
+		// 检查DLL是否存在
+		if (GetFileAttributesW(dllPath.c_str()) == INVALID_FILE_ATTRIBUTES) {
+			msg += L"- DLL文件不存在或不可访问\n";
+		}
+		if (GetExitCodeProcess(hProcess, &targetErr) && targetErr != 0) {
+			msg += L"DLL加载失败 (" + std::to_wstring(targetErr) + L"): " + GetLastErrorString(targetErr);
+		}
+		else {
+			MessageBoxW(NULL, L"DLL加载失败: 可能缺少依赖项或DLL初始化失败", L"错误", MB_OK);
+		}
+		MessageBoxW(NULL, msg.c_str(), NULL, MB_OK);
+
+	}
+
+	// 清理
+	VirtualFreeEx(hProcess, remoteStr, 0, MEM_RELEASE);
+	CloseHandle(hThread);
+	CloseHandle(hProcess);
+
+	return exitCode != 0;
+}
+
+void injectDLL(std::wstring process, std::wstring dllName) {
+
+	DWORD pid = FindProcessId(process);
+
+	if (pid == 0) {
+		LOG_IMMEDIATE_ERROR("WeGame process not found.");
+		return;
+	}
+
+	if (IsDllInjected(pid, dllName)) {
+		LOG_IMMEDIATE_ERROR("DLL already injected.");
+		return;
+	}
+	std::wstring fullPath = GetDllFullPath(dllName);
+	//if (InjectDll(pid, fullPath)) {
+	//if (_InjectDll(pid, GetDllFullPath(dllName))) {
+	LOG_IMMEDIATE("注入的DLL:" + WStringToGBK(fullPath));
+
+	//LOG_IMMEDIATE(stringTOwstring(WStringToGBK(GetDllFullPath(dllName)));
+
+	if (!CheckFileExistsWinAPI(fullPath))
+	{
+		LOG_IMMEDIATE_ERROR("没有找到DLL文件:" + WStringToGBK(GetDllFullPath(dllName)));
+		return;
+	}
+	//也许可以注入自身
+	//if (_InjectDll(pid, L"C:/Users/Administrator/Desktop/cjmf/"+ dllName)) {
+	if (_InjectDll(pid, fullPath)) {
+		LOG_IMMEDIATE("DLL already Injected successfully...");
+	}
+	else {
+		LOG_IMMEDIATE_ERROR(WStringToString(fullPath));
+		LOG_IMMEDIATE_ERROR("DLL Injection failed.");
+	}
+}
+
+std::string getComputerName() {
+	return WStringToString(GetComputerNameWString());
+}
+
+std::map<std::wstring, std::wstring> getHeader() {
+	std::map<std::wstring, std::wstring> HEADERS = {
+		/*	{ L"Content-Type", L"application/json" },
+			{ L"User-Agent", L"Mozilla/5.0" },
+			{ L"token", L"{{bToken}}" },*/
+
+			{   L"organizationType",L"\"BAR\""                                                                                                          },
+			{   L"merchantId",L"53" },
+			{   L"barId",L"98"                                                                                                                          },
+			{   L"token",L"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJSZW1vdGVJcCI6IiIsIkxvY2FsTG9naW4iOjAsIkNvbnRleHQiOnsidXNlcl9pZCI6MjQ3LCJ1c2VyX25hbWUiOiJ4eHgiLCJ1dWlkIjoiIiwicmlkIjoxOCwibWFudWZhY3R1cmVfaWQiOjUzLCJiYXJfaWQiOjk4LCJyb290X2lkIjowLCJvcmdhbml6YXRpb25fdHlwZSI6IiIsInBsYXRmb3JtIjoiYmFyY2xpZW50In0sImV4cCI6MTc1MjEzODc4N30.OxuSFEDQOq31KK9Vh-uwL9phsuV5zovluBptoNC3eXw"                                                                                                                  },
+			{   L"User-Agent",L"Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/136.0.0.0 Safari/537.36\r\n"        },
+			{   L"language",L"ZH_CN" },
+			{   L"sec-ch-ua-platform",L"\"Windows\""                                                                                                    },
+			{   L"sec-ch-ua-mobile",L"?0"                                                                                                               },
+			{   L"Accept",L"application/json, text/plain, */*"                                                                                          },
+			{   L"Content-Type",L"application/json"                                                                                                     },
+			//	{   L"Referer",L"https://dev-asz.cjmofang.com/activity/activityManagement/createActivity/MODE_SIGN/0/add/0"                                 },
+			{   L"sec-ch-ua",L"\"Chromium\";v=\"136\", \"Google Chrome\";v=\"136\", \"Not.A/Brand\";v=\"99\""                                           },
+			{   L"Accept-Encoding",L"gzip, deflate, br"                                                                                                 },
+			{   L"Connection",L"keep-alive"                                                                                                             },
+			{   L"Cache-Control",L"no-cache"                                                                                                            },
+			{   L"Host",L"127.0.0.1:8000"                                                                                                                }
+	};
+	return HEADERS;
+
+}
+
+
+
+

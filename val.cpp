@@ -24,6 +24,7 @@ std::mutex MitmDumpController::instanceMutex;
 nlohmann::json httpData;
 
 extern std::map<std::wstring, std::wstring> HEADERS; //LOL
+extern std::string g_hostName;
 
 void _sendHttp_Val(nlohmann::json jsonBody) {
 	HttpClient http;
@@ -38,7 +39,7 @@ void _sendHttp_Val(nlohmann::json jsonBody) {
 			jsonBody.dump()
 		);
 		//g_mtx_header.unlock();
-		LOG_IMMEDIATE("Response: " + UTF8ToGBK(response));
+		LOG_IMMEDIATE("_Response: " + UTF8ToGBK(response));
 	}
 	catch (const std::exception& e) {
 		LOG_IMMEDIATE_ERROR("_sendHttp_Val:::");
@@ -54,7 +55,7 @@ void _sendHttp_Val(std::string type, nlohmann::json data) {
 	nlohmann::json jsonBody;
 	jsonBody["type"] = type;
 	jsonBody["name"] = "";
-	if (!data.empty())
+	if (!data.empty() && !data.is_null() && data != "")
 	{
 		jsonBody.update(data);
 	}
@@ -62,7 +63,7 @@ void _sendHttp_Val(std::string type, nlohmann::json data) {
 
 }
 
-int updateHeader() {
+int startTempProxy() {
 	try {
 		auto& controller = MitmDumpController::getInstance();
 
@@ -73,20 +74,22 @@ int updateHeader() {
 			/*for (size_t i = 0; i < 5; i++)
 			{*/
 
-		// 读取UTF-8文件内容
+			// 读取UTF-8文件内容
 		try {
 
 
 			/*	if ()
 				{*/
+			LOG_IMMEDIATE("代理运行");
 			const char* exePath = "dumpMain.exe";
 			// TODO 不阻塞的方式执行
+			LOG_IMMEDIATE("是否阻塞 代理结束?");
 			int result = std::system(exePath);
-
 			//运行exe 代理
-			std::this_thread::sleep_for(std::chrono::milliseconds(2000));
+
+			std::this_thread::sleep_for(std::chrono::milliseconds(3000));
 			// 触发https...
-			std::this_thread::sleep_for(std::chrono::milliseconds(5000));
+		/*	std::this_thread::sleep_for(std::chrono::milliseconds(5000));*/
 
 			if (result == 0 && is_file_exists_and_not_empty("outfileDecode")) {
 
@@ -116,7 +119,7 @@ int updateHeader() {
 						// 为啥没写到日志中去呢??? 可能是改了日志部署的形式.
 						LOG_IMMEDIATE("请求有信息");
 					}
-				
+
 					//LOG_IMMEDIATE_DEBUG(httpData.dump(4));
 				}
 
@@ -180,28 +183,29 @@ int updateHeader() {
 }
 
 std::string getValinfo2send() {
-	
+
 	nlohmann::json p_header;
 	nlohmann::json p_body = {
 	{"from_src", "valorant_web"},
-	{"size", 11},              
-	{"queueID", "255"}          
+	{"size", 11},
+	{"queueID", "255"}
 	};
 	nlohmann::json p_responseJson;
-	for ( auto& flow : httpData) {
-	
+	for (auto& flow : httpData) {
+
 		// 请求部分
 		auto& request = flow["request"];
 		std::string str = request.value("url", "N/A");
-	
+		//https://www.wegame.com.cn/api/v1/wegame.rail.game.PromptMarket/QueryPromptMarket
 		size_t found_pos = str.find("/api/v1/wegame.pallas.game.ValBattle/GetBattleList");
+		//size_t found_pos = str.find("/api/v1/wegame.rail.game.PromptMarket/QueryPromptMarket");
 		if (found_pos == std::string::npos) {
 			continue;
 		}
 		std::cout << "===== Flow =====\n";
 		std::cout << "Request URL: " << request.value("url", "N/A") << "\n";
 		std::cout << "Method: " << request.value("method", "N/A") << "\n";
-	
+
 		// 打印 headers
 		std::cout << "Headers:\n";
 		std::string cookies = request["headers"]["cookie"];
@@ -275,27 +279,51 @@ std::string getValinfo2send() {
 			);
 			LOG_IMMEDIATE(UTF8ToGBK(response_json));
 			p_responseJson = nlohmann::json::parse(UTF8ToGBK(response_json));
+
 			nlohmann::json battlesInfos = p_responseJson["battles"];
 			nlohmann::json sendJson;
+			uint64_t ticketNum = 0;
 			for (auto& game : battlesInfos) {
-				sendJson["computer_no"] = game[""];
-				sendJson["name"] = game[""];
+				sendJson["computer_no"] = g_hostName;
+				sendJson["name"] = "";
 				sendJson["game_uuid"] = game["matchId"];
 				sendJson["event_id"] = game["apEventId"];
 				sendJson["game_mode"] = VAL_gameModMap[game["queueId"]];
-				//sendJson["team_size"] = game[""];
-				sendJson["user_game_rank"] = game["TODO"];
+				sendJson["team_size"] = "";
+				sendJson["user_game_rank"] = VAL_rankMap[game["competitiveTier"]];
 				sendJson["type"] = "END";
-				sendJson["Data"]["ren_tou_shu"] = game["statsKills"];
-				sendJson["Data"]["mvp"] = game["mvpsvp"];
-				sendJson["Data"]["win"] = game["wonMatch"];
-				sendJson["Data"]["time"] = std::to_string(game["gameLengthMillis"].get<uint64_t>()/1000);
-				sendJson["Data"]["Member"]["id"] = game["subject"];
-				sendJson["Data"]["Member"]["role"] = "self";
-				sendJson["Data"]["remark"] = std::to_string(game["pentaKillCount"].get<uint64_t>());
+				ticketNum = game["pentaKillCount"].get<uint64_t>();
+				sendJson["remark"] = std::to_string(ticketNum);
+				sendJson["data"]["ren_tou_shu"] = game["statsKills"];
+				sendJson["data"]["mvp"] = game["mvpsvp"];
+				sendJson["data"]["win"] = game["wonMatch"];
+				sendJson["data"]["time"] = std::to_string(game["gameLengthMillis"].get<uint64_t>() / 1000);
+				nlohmann::json member;
+				member["role"] = "self";
+				member["id"] = game["subject"];
+				sendJson["data"]["member"].push_back(member);
 				break;//就取第一个
 			}
+
+			for (size_t i = 0; i < ticketNum; i++)
+			{
+				sendJson["event_id"] = std::to_string(i);
+				nlohmann::json sendTicketJson = sendJson;
+				sendTicketJson["type"] = "LEI_JI_WU_LIAN_SHA_SHU";
+				_sendHttp_Val(sendJson);
+			}
+
 			_sendHttp_Val(sendJson);
+			//std::string response_json2 = http.SendRequest(
+			//	L"https://www.wegame.com.cn/api/v1/wegame.pallas.game.ValBattle/GetBattleDetail",
+			//	L"POST",
+			//	HEADERS,
+			//	body
+			//);
+			//nlohmann::json battle_detail = nlohmann::json::parse(UTF8ToGBK(response_json2));
+			//sendJson["subject"]
+			//sendJson["user_game_rank"]
+
 		/*{
 				"battles": [
 					{
@@ -338,7 +366,7 @@ std::string getValinfo2send() {
 					"error_message" : "success"
 				}
 			}*/
-			
+
 			//_sendHttp_Val();
 
 		}
@@ -359,7 +387,8 @@ std::string getValinfo2send() {
 
 		return p_responseJson.dump();
 	}
-	
+
+	return "";
 }
 
 

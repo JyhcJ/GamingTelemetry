@@ -6,7 +6,7 @@
 ThreadSafeLogger::ThreadSafeLogger()
 	: m_minLogLevel(LogLevel::DEBUG1), m_running(true),
 	m_lastRotationTime(std::chrono::system_clock::now()) {
-	//m_logThread = std::make_unique<std::thread>(&ThreadSafeLogger::ProcessLogs, this);
+	m_logThread = std::make_unique<std::thread>(&ThreadSafeLogger::ProcessLogs, this);
 }
 
 
@@ -25,7 +25,7 @@ ThreadSafeLogger& ThreadSafeLogger::GetInstance() {
 void ThreadSafeLogger::SetOutputFile(const std::string& filePath) {
 	std::lock_guard<std::mutex> lock(m_queueMutex);
 	m_currentLogFilePath = filePath;
-	//RotateLogFileIfNeeded();
+	RotateLogFileIfNeeded();
 }
 
 
@@ -37,7 +37,7 @@ void ThreadSafeLogger::RotateLogFileIfNeeded() {
 	/*auto hoursSinceLastRotation = std::chrono::duration_cast<std::chrono::hours>(
 		now - m_lastRotationTime).count();*/
 
-	if (hoursSinceLastRotation >= 3) {
+	if (hoursSinceLastRotation >= 24) {
 		if (m_logFile.is_open()) {
 			m_logFile.close();
 		}
@@ -154,8 +154,8 @@ void ThreadSafeLogger::Log(LogLevel level, const std::string& message) {
 }
 
 void ThreadSafeLogger::LogImmediate(LogLevel level, const std::string& message) {
-	if (level < m_minLogLevel.load()) return;
 
+	if (level < m_minLogLevel.load()) return;
 	auto now = std::chrono::system_clock::now();
 	auto time = std::chrono::system_clock::to_time_t(now);
 	std::tm tm;

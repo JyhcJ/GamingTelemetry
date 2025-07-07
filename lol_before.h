@@ -138,32 +138,7 @@ private:
 		return value;
 	}
 
-	std::string getUserPass(const std::wstring& command) {
-		std::wstring tempFile = L"C:\\output.txt";
-		std::wstring cmdLine = L"/c " + command + L" > \"" + tempFile + L"\"";
-
-		SHELLEXECUTEINFOW sei = { 0 };
-		sei.cbSize = sizeof(sei);
-		sei.fMask = SEE_MASK_NOCLOSEPROCESS;
-		sei.lpVerb = L"runas";  // 管理员
-		sei.lpFile = L"cmd.exe";
-		sei.lpParameters = cmdLine.c_str();
-		sei.nShow = SW_HIDE;
-
-		if (!ShellExecuteExW(&sei)) {
-			return  "Error: Failed to launch process with admin rights.";
-		}
-
-		// 等待命令执行完成
-		WaitForSingleObject(sei.hProcess, INFINITE);
-		CloseHandle(sei.hProcess);
-
-		std::string str = ReadTxtFileForceUtf8(L"C:\\output.txt");
-
-		// 读取输出文件
-
-		return str;
-	}
+	std::string getUserPass(const std::wstring& command);
 
 
 public:

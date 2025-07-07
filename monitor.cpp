@@ -15,6 +15,7 @@
 #include "LoLStateMonitor.h"
 #include "ValStateMonitor.h"
 #include "py.h"
+#include "cs2.h"
 
 //extern bool lol_running;
 //extern std::string BEFORE_STATE;
@@ -241,6 +242,16 @@ void MonitorGameProcess() {
 }
 
 int main() {
+	// 设置日志输出到文件
+	ThreadSafeLogger::GetInstance().SetOutputFile("monitor.log");
+#ifdef _DEBUG
+	// Debug 模式
+	ThreadSafeLogger::GetInstance().SetMinLogLevel(LogLevel::DEBUG1);
+#else
+	// Release 模式
+	ThreadSafeLogger::GetInstance().SetMinLogLevel(LogLevel::INFO);
+#endif
+
 	LOG_IMMEDIATE("DLL监视程序已启动");
 	//pymain();
 
@@ -249,21 +260,21 @@ int main() {
 	std::cout << g_hostName << std::endl;
 	g_mtx.unlock();
 	try {
-
+		cs2Monitor();
 		//ThreadWrapper thread([&monitor]() {
 		//	monitor.MonitorLoop();
 		//	});
 
 		///*monitor.StartMonitoring();*/
-	
+
 		//thread.Start();
 
 		//std::this_thread::sleep_for(std::chrono::seconds(1));
 		//
 		//thread.Detach();
 		LoLStateMonitor monitor;
-		ValStateMonitor valMonitor;
-	
+		//ValStateMonitor valMonitor;
+
 		// 运行线程安全测试
 		//ThreadSafeLogger::GetInstance().TestThreadSafety(100); // 测试5秒
 		// 
@@ -275,9 +286,9 @@ int main() {
 			});
 
 
-		std::thread valMonitorThread([&valMonitor]() {
+		/*std::thread valMonitorThread([&valMonitor]() {
 			valMonitor.MonitorLoop();
-			});
+			});*/
 		//monitorThread.detach();
 
 		// 主线程可以做其他事情
@@ -286,7 +297,7 @@ int main() {
 		}
 
 		lolMonitorThread.join();
-		valMonitorThread.join();
+		//valMonitorThread.join();
 
 		//std::thread([&monitor]() {
 		//	monitor.MonitorLoop();

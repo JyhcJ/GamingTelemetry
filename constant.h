@@ -2,6 +2,15 @@
 #include <map>
 #include <string>
 
+static const std::wstring _AUTHCOM = L"wmic PROCESS WHERE name='LeagueClientUx.exe' GET commandline";
+static const std::string _APPPORT = "--app-port=";
+static const std::string _AUTHTOKEN = "--remoting-auth-token";
+static const std::string _RSOPLATFORM = "--rso_platform_id=";
+static const std::string _RSO_ORIPLATFORM = "--rso_original_platform_id=";
+static const std::string _RSOPLATFORMID = "--rso_platform_id=";
+static const std::wstring _TEMPFILE = L"C:\\output.txt";
+
+
 static std::map<std::string, std::string> LOL_regionMap = {
 	{"HN1", "艾欧尼亚"},
 	{"HN2", "祖安"},
@@ -91,6 +100,46 @@ static std::map<std::string, std::string> VAL_gameModMap = {
 	{"",""},//GUN_GAME武装升级
 
 };
+
+static std::map<int, std::string> VAL_rankMap = {
+	{0, "UNLIMIT"},//未定级
+
+	{1, "UNLIMIT"},//未定级
+	{2, "UNLIMIT"},//未定级
+	{3, "HEI_TIE"},//
+	{4, "HEI_TIE"},//
+	{5, "HEI_TIE"},//
+	{6, "QING_TONG"},//
+	{7, "QING_TONG"},//
+	{8,"QING_TONG"},//
+	{9,"BAI_YIN"},//
+	{10,"BAI_YIN"},//
+	{11,"BAI_YIN"},//
+	{12,"HUANG_JIN"},//
+	{13,"HUANG_JIN"},//
+	{14, "HUANG_JIN"},//
+	{15, "BO_JIN"},//
+	{16, "BO_JIN"},//
+	{17, "BO_JIN"},//
+	{18, "ZUAN_SHI"},//
+	{19, "ZUAN_SHI"},//
+	{20, "ZUAN_SHI"},//
+	{21, "CHAO_FAN"},//
+	{22,"CHAO_FAN"},//
+	{23,"CHAO_FAN"},//
+	{24,"SHEN_HUA"},//b 
+	{25,"SHEN_HUA"},//
+	{26,"SHEN_HUA"},//
+	{27,"WU_WEI_ZHAN_HUN"},//
+
+};
+
+static std::map<std::string, std::string> CS2_modeMap = {
+	{"competitive", "QUICK"},// 5e匹配
+	{"casual", "NORMAL"},// 官匹人机
+	{"custom", "QUICK"},//TODO 练习
+};
+
 
 //BOMB=普通模式,DEATHMATCH=乱斗模式,GUN_GAME=武装升级,ONE_FOR_ALL=克隆模式,QUICK_BOMB=爆能快攻,SNOWBALL_FIGHT=雪球大战,SWIFTPLAY=极速模式,HURM=团队乱斗,CUSTOM=自定义,RANK=竞技模式
 //std::unordered_map<std::string, int> rankLevel = {

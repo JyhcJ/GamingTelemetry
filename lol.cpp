@@ -59,8 +59,8 @@ extern std::mutex g_mtx;
 
 int g_multkill;
 int g_deaths = -1;
-int g_event_id;
 bool g_is_chaoshen;
+
 std::mutex g_mtx_header;
 
 std::string playerName;
@@ -98,7 +98,7 @@ std::map<std::wstring, std::wstring> HEADERS = {
 		{   L"organizationType",L"\"BAR\""                                                                                                          },
 		{   L"merchantId",L"53" },
 		{   L"barId",L"98"                                                                                                                          },
-		{   L"token",L"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJSZW1vdGVJcCI6IiIsIkxvY2FsTG9naW4iOjAsIkNvbnRleHQiOnsidXNlcl9pZCI6MjQ3LCJ1c2VyX25hbWUiOiJ4eHgiLCJ1dWlkIjoiIiwicmlkIjoxOCwibWFudWZhY3R1cmVfaWQiOjUzLCJiYXJfaWQiOjk4LCJyb290X2lkIjowLCJvcmdhbml6YXRpb25fdHlwZSI6IiIsInBsYXRmb3JtIjoiYmFyY2xpZW50In0sImV4cCI6MTc1MTE2MjE1N30.eGXGsXSIn2keOdRKMUdH3D-XyjTa90ZzzvP2d2Ykw5Y"                                                                                                                  },
+		{   L"token",L"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJSZW1vdGVJcCI6IiIsIkxvY2FsTG9naW4iOjAsIkNvbnRleHQiOnsidXNlcl9pZCI6MjQ3LCJ1c2VyX25hbWUiOiJ4eHgiLCJ1dWlkIjoiIiwicmlkIjoxOCwibWFudWZhY3R1cmVfaWQiOjUzLCJiYXJfaWQiOjk4LCJyb290X2lkIjowLCJvcmdhbml6YXRpb25fdHlwZSI6IiIsInBsYXRmb3JtIjoiYmFyY2xpZW50In0sImV4cCI6MTc1MjEzODc4N30.OxuSFEDQOq31KK9Vh-uwL9phsuV5zovluBptoNC3eXw"                                                                                                                  },
 		{   L"User-Agent",L"Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/136.0.0.0 Safari/537.36\r\n"        },
 		{   L"language",L"ZH_CN" },
 		{   L"sec-ch-ua-platform",L"\"Windows\""                                                                                                    },
@@ -656,7 +656,9 @@ void _sendHttp_LOL(PostGameData pgd) {
 	catch (const std::exception& e) {
 		std::cerr << "Error: " << e.what() << std::endl;
 		LOG_ERROR(e.what());
+		g_mtx_header.unlock();
 	}
+
 }
 // 向发送信息 (主要用于客户端启动结束)
 
@@ -681,6 +683,7 @@ void _sendHttp_LOL(nlohmann::json jsonBody) {
 	catch (const std::exception& e) {
 		LOG_IMMEDIATE_ERROR("_sendHttp_LOL:::");
 		LOG_IMMEDIATE_ERROR(e.what());
+		g_mtx_header.unlock();
 	}
 	catch (...) {  // 捕获其他所有异常
 		LOG_IMMEDIATE_ERROR("_sendHttp_LOL :::Unknown exception occurred");
@@ -744,7 +747,7 @@ extern "C" __declspec(dllexport) const int setHeader(const char* token1, const c
 		};
 	}
 	catch (const std::exception& e) {
-		LOG_IMMEDIATE_ERROR("setHeader 没有设置");
+		LOG_IMMEDIATE_ERROR("setHeader 没有设置:" + std::string(e.what()));
 		return 0;
 	}
 

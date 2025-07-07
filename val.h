@@ -1,6 +1,11 @@
 #pragma once
 #include <nlohmann/json.hpp>
 #include <fstream>
+#include <unordered_set>
+#include "ThreadSafeLogger.h"
+
+
+
 class MitmDumpController {
 private:
     // 单例实例
@@ -249,14 +254,73 @@ public:
     }
 };
 
+class LogAnalyzer {
+private:
+    std::unordered_set<std::string> processedTimestamps;
+    std::string logFilePath;
+
+public:
+    std::string valGamePath = "E:\\WeGameApps\\rail_apps\\无畏契约(2001715)";
+    LogAnalyzer() {
+        logFilePath = valGamePath + "\\live\\ShooterGame\\Saved\\Logs\\ShooterGame.log";
+    }
+
+    bool checkMatchEnd() {
+        // 打开日志文件
+        std::ifstream logFile(logFilePath);
+        if (!logFile.is_open()) {
+            LOG_IMMEDIATE("无法打开日志文件");
+            return false;
+        }
+
+        // 读取文件内容到向量中以便反向遍历
+        std::vector<std::string> lines;
+        std::string line;
+        while (std::getline(logFile, line)) {
+            lines.push_back(line);
+        }
+        logFile.close();
+
+        // 从末尾开始反向遍历
+        for (auto it = lines.rbegin(); it != lines.rend(); ++it) {
+            const std::string& currentLine = *it;
+
+            // 检查是否包含匹配的字符串
+            if (currentLine.find("LogShooterGameState: Match Ended: Completion State: 'Completed'") != std::string::npos) {
+
+                // 提取时间戳 [2025.06.24-06.35.47:978]
+                size_t timestampStart = currentLine.find('[');
+                size_t timestampEnd = currentLine.find(']');
+
+                if (timestampStart != std::string::npos && timestampEnd != std::string::npos) {
+                    std::string timestamp = currentLine.substr(timestampStart, timestampEnd - timestampStart + 1);
+
+                    // 检查时间戳是否已存在
+                    if (processedTimestamps.find(timestamp) != processedTimestamps.end()) {
+                        return false;
+                    }
+                    else {
+                        // 存储新时间戳并返回true
+                        processedTimestamps.insert(timestamp);
+                        return true;
+                    }
+                }
+            }
+        }
+
+        // 没有找到匹配的行
+        return false;
+    }
+
+  
+};
+
 void _sendHttp_Val(nlohmann::json jsonBody);
 
 void _sendHttp_Val(std::string type, nlohmann::json data);
 
-int updateHeader();
+int startTempProxy();
 
 std::string getValinfo2send();
-
-void readMitmFile();
 
 

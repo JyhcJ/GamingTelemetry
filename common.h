@@ -2,6 +2,8 @@
 
 #include "string"
 
+#include <map>
+
 void call_调试输出信息(const char* pszFormat, ...);
 
 void DebugPrintf(const char* format, ...);
@@ -13,6 +15,8 @@ std::string UTF8ToANSI(const std::string& utf8Str);
 std::wstring Utf8ToWstring(const std::string& str);
 
 std::string UTF8ToGBK(const std::string& strUTF8);
+
+std::string WStringToGBK(const std::wstring& wstr);
 
 std::string TCHARToString(const TCHAR* tcharStr);
 
@@ -33,4 +37,12 @@ std::string preprocess_mitm_text(const std::string& input);
 std::string unescape_json_string(const std::string& input);
 
 void remove_control_chars(std::string& s);
+
+bool CheckFileExistsWinAPI(const std::wstring& filePath);
+
+void injectDLL(std::wstring process, std::wstring dllName);
+
+std::string getComputerName();
+
+std::map<std::wstring, std::wstring> getHeader();
 

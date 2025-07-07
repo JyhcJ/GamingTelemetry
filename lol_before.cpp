@@ -7,6 +7,10 @@
 extern std::string g_hostName;
 extern bool is_lol_running;
 extern bool is_lol_game_running;
+extern std::unordered_set<int> processed_event_ids;
+extern int g_multkill;
+extern int g_deaths;
+extern bool g_is_chaoshen;
 nlohmann::json g_infoBefore;
 std::unordered_set<uint64_t> g_lobbySummonerIds;
 std::mutex g_mtx;
@@ -15,25 +19,24 @@ static std::map<size_t, size_t> HISTORY_GAMES;//gameid _ userid
 
 bool Game_Before::getParam() {
 	std::lock_guard<std::mutex> lock(g_m); // 自动加锁/解锁
-	std::string str = getUserPass(L"wmic PROCESS WHERE name='LeagueClientUx.exe' GET commandline");
+	std::string str = getUserPass(_AUTHCOM);
 	if (str.size() < 100)
 	{
 		LOG_IMMEDIATE("客户端未启动? 等待客户端完全启动");
 		return false;
 	}
-	app_port = extractParamValue(str, "--app-port=");
-	auth_token = extractParamValue(str, "--remoting-auth-token");
-	rso_platform_id = extractParamValue(str, "--rso_platform_id=");
-
-	rso_original_platform_id = extractParamValue(str, "--rso_original_platform_id=");
+	app_port = extractParamValue(str, _APPPORT);
+	auth_token = extractParamValue(str, _AUTHTOKEN);
+	rso_platform_id = extractParamValue(str, _RSOPLATFORM);
+	rso_original_platform_id = extractParamValue(str, _RSO_ORIPLATFORM);
 
 	if (rso_original_platform_id == "") {
-		rso_original_platform_id = extractParamValue(str, "--rso_platform_id=");
+		rso_original_platform_id = extractParamValue(str, _RSOPLATFORMID);
 	}
 	//std::cout << "auth_token: " << auth_token << std::endl;
 	//std::cout << "app_port: " << app_port << std::endl;
 	url = "https://riot:" + auth_token + "@127.0.0.1:" + app_port;
-	
+
 	return true;
 }
 
@@ -175,82 +178,82 @@ void Game_Before::getAndSendInfo(std::string sendType) {
 	bool last_is_end = false;
 	//if (sendType == "END") {
 		//std::this_thread::sleep_for(std::chrono::seconds(5));
-		if (httpAuthSend("/lol-match-history/v1/products/lol/current-summoner/matches", matchesData, "?begIndex=0&endIndex=0"))
-		{
-			//LOG_IMMEDIATE(matchesData.dump());
-			matchAccountId_u64 = matchesData["accountId"].get<uint64_t>();
-			data["member"] = nlohmann::json::array();
+	if (httpAuthSend("/lol-match-history/v1/products/lol/current-summoner/matches", matchesData, "?begIndex=0&endIndex=0"))
+	{
+		//LOG_IMMEDIATE(matchesData.dump());
+		matchAccountId_u64 = matchesData["accountId"].get<uint64_t>();
+		data["member"] = nlohmann::json::array();
 
-			//jsonBody
-			for (const auto& game : matchesData["games"]["games"]) {
-				matchGameId_u64 = game["gameId"];
-				if (HISTORY_GAMES[matchGameId_u64] == myAccountId && "GameComplete" == game["endOfGameResult"])
-				{
-					for (const auto& participantIdentitie : game["participantIdentities"]) {
-						nlohmann::json member;
-						uint64_t id;
-						id = participantIdentitie["player"]["summonerId"].get<uint64_t>();
-						member["id"] = std::to_string(id);
-						member["role"] = "other";
-						//这里有问题 接口只能查询到自己的信息==========
-			/*			bool isContains = (std::find(lobbySummonerIds.begin(), lobbySummonerIds.end(), member["id"]) != lobbySummonerIds.end());
-						if (isContains)
-						{
-							member["role"] = "team";
-						}*/
-						//==========================================
-						// 检查 participantId 是否匹配
-						if (id == matchAccountId_u64) {
-							participantId_u64 = participantIdentitie["participantId"].get<uint64_t>();
-							member["role"] = "self";
-							data["member"].push_back(member);
-							//continue;
-						}
-						if (g_lobbySummonerIds.size() > 1)
-						{
-							for (uint64_t lobby : g_lobbySummonerIds) {
-								if (lobby == id) {
-									continue;
-								}
-								else {
-									member["id"] = std::to_string(lobby);
-									member["role"] = "team";
-									data["member"].push_back(member);
-								}
+		//jsonBody
+		for (const auto& game : matchesData["games"]["games"]) {
+			matchGameId_u64 = game["gameId"];
+			if (HISTORY_GAMES[matchGameId_u64] == myAccountId && "GameComplete" == game["endOfGameResult"])
+			{
+				for (const auto& participantIdentitie : game["participantIdentities"]) {
+					nlohmann::json member;
+					uint64_t id;
+					id = participantIdentitie["player"]["summonerId"].get<uint64_t>();
+					member["id"] = std::to_string(id);
+					member["role"] = "other";
+					//这里有问题 接口只能查询到自己的信息==========
+		/*			bool isContains = (std::find(lobbySummonerIds.begin(), lobbySummonerIds.end(), member["id"]) != lobbySummonerIds.end());
+					if (isContains)
+					{
+						member["role"] = "team";
+					}*/
+					//==========================================
+					// 检查 participantId 是否匹配
+					if (id == matchAccountId_u64) {
+						participantId_u64 = participantIdentitie["participantId"].get<uint64_t>();
+						member["role"] = "self";
+						data["member"].push_back(member);
+						//continue;
+					}
+					if (g_lobbySummonerIds.size() > 1)
+					{
+						for (uint64_t lobby : g_lobbySummonerIds) {
+							if (lobby == id) {
+								continue;
 							}
-							//g_lobbySummonerIds.clear();
+							else {
+								member["id"] = std::to_string(lobby);
+								member["role"] = "team";
+								data["member"].push_back(member);
+							}
 						}
-						
+						//g_lobbySummonerIds.clear();
 					}
 
+				}
 
-					for (const auto& participant : game["participants"]) {
-						if (participant["participantId"] == participantId_u64) {
-							data["ren_tou_shu"] = participant["stats"]["kills"];
-							data["zhu_gong_shu"] = participant["stats"]["assists"];
-							// neutralMinionsKilled 字段 小兵+野怪.
-							data["bu_bing_shu"] = participant["stats"]["totalMinionsKilled"];
-							data["pai_yan_shu"] = participant["stats"]["wardsKilled"];
-							data["win"] = participant["stats"]["win"] == false ? 0 : 1;
-							//data["time"] = participant["stats"]["assists"];
-								//data["time"] = matchesData["games"]["games"]["gameDuration"];
-							break;
-						}
+
+				for (const auto& participant : game["participants"]) {
+					if (participant["participantId"] == participantId_u64) {
+						data["ren_tou_shu"] = participant["stats"]["kills"];
+						data["zhu_gong_shu"] = participant["stats"]["assists"];
+						// neutralMinionsKilled 字段 小兵+野怪.
+						data["bu_bing_shu"] = participant["stats"]["totalMinionsKilled"];
+						data["pai_yan_shu"] = participant["stats"]["wardsKilled"];
+						data["win"] = participant["stats"]["win"] == false ? 0 : 1;
+						//data["time"] = participant["stats"]["assists"];
+							//data["time"] = matchesData["games"]["games"]["gameDuration"];
+						break;
 					}
-					data["time"] = game["gameDuration"];
-					last_is_end = true;
-					g_mtx.lock();
-					//is_lol_running = true;
-					is_lol_game_running = false;
-					g_mtx.unlock();
-					
 				}
-				else {
-
-				}
+				data["time"] = game["gameDuration"];
+				last_is_end = true;
+				g_mtx.lock();
+				//is_lol_running = true;
+				//is_lol_game_running = false;  //注释后会出现异常问题吗
+				g_mtx.unlock();
 
 			}
+			else {
+
+			}
+
 		}
+	}
 	//}
 	// 
 	// 
@@ -360,11 +363,41 @@ void Game_Before::getAndSendInfo(std::string sendType) {
 		LOG_IMMEDIATE(" 英雄联盟对局结束?/ 掉线? / 重开?");
 		g_infoBefore["event_id"] = "end";
 		_sendHttp_LOL(g_infoBefore);
+		processed_event_ids.clear();
+		g_multkill = 0;
+		g_deaths = 0;
+		g_is_chaoshen = false;
+
 	}
 	g_mtx.unlock();
 }
 
+std::string Game_Before::getUserPass(const std::wstring& command) {
+	std::wstring tempFile = _TEMPFILE;
+	std::wstring cmdLine = L"/c " + command + L" > \"" + tempFile + L"\"";
 
+	SHELLEXECUTEINFOW sei = { 0 };
+	sei.cbSize = sizeof(sei);
+	sei.fMask = SEE_MASK_NOCLOSEPROCESS;
+	sei.lpVerb = L"runas";  // 管理员
+	sei.lpFile = L"cmd.exe";
+	sei.lpParameters = cmdLine.c_str();
+	sei.nShow = SW_HIDE;
+
+	if (!ShellExecuteExW(&sei)) {
+		return  "Error: Failed to launch process with admin rights.";
+	}
+
+	// 等待命令执行完成
+	WaitForSingleObject(sei.hProcess, INFINITE);
+	CloseHandle(sei.hProcess);
+
+	std::string str = ReadTxtFileForceUtf8(L"C:\\output.txt");
+
+	// 读取输出文件
+
+	return str;
+}
 bool Game_Before::before_main(std::string sendType) {
 	if (Game_Before::getParam()) {
 		Game_Before::getAndSendInfo(sendType);
