@@ -21,6 +21,7 @@
 #include <boost/exception/all.hpp>
 #include <boost/exception/info.hpp>
 #include <boost/exception/diagnostic_information.hpp>
+#include "nloJson.h"
 
 struct my_exception : virtual std::exception, virtual boost::exception {};
 
@@ -66,7 +67,7 @@ void _sendHttp_cs2(nlohmann::json jsonBody) {
 		// 3. 发送POST请求
 		g_mtx_header.lock();
 		std::string response = http.SendRequest(
-			L"https://dev-asz.cjmofang.com/api/client/CsgoPostGameData",
+			L"https://"+ IS_DEBUG +L"asz.cjmofang.com/api/client/CsgoPostGameData",
 			L"POST",
 			getHeader(),
 			jsonBody.dump()
@@ -187,11 +188,31 @@ void HandleKillStreak(int streak, json data) {
 			break;
 		}
 		LOG_IMMEDIATE("连杀时JSON:::" + data.dump(4));
-		jsonBody["game_uuid"] = std::to_string(g_state.startGameState["provider"]["timestamp"].get<int>());
+
+
+		//jsonBody["game_uuid"] = std::to_string(g_state.startGameState["provider"]["timestamp"].get<int>());
+		if (g_state.startGameState.contains("provider")) {
+			const auto& provider = g_state.startGameState["provider"];
+			if (provider.contains("timestamp") && !provider["timestamp"].is_null()) {
+				jsonBody["game_uuid"] = std::to_string(provider["timestamp"].get<size_t>());
+				std::cout << "Timestamp: " << provider["timestamp"] << std::endl;
+			}
+			else {
+				std::cerr << "Timestamp not found or is null" << std::endl;
+			}
+		}
+		else {
+			jsonBody["game_uuid"] = "yhc" + GenerateUUID();
+			std::cerr << "Provider object not found" << std::endl;
+		}
+
+		//jsonBody["game_uuid"]=g_state.startGameState["provider"].value("timestamp", GenerateUUID());
+
 		jsonBody["event_id"] = std::to_string(data["provider"]["timestamp"].get<int>());
 		jsonBody["computer_no"] = getComputerName();
 		jsonBody["name"] = "";
-		jsonBody["game_mode"] = CS2_modeMap[data["map"]["mode"]];
+		//jsonBody["game_mode"] = CS2_modeMap[data["map"]["mode"]];
+		jsonBody["game_mode"] = data["map"]["mode"];
 		jsonBody["team_size"] = "";
 		jsonBody["user_game_rank"] = "";
 		//jsonBody["data"] = "";
@@ -217,17 +238,37 @@ void HandleMatchEnd(const json& lastMyData, const json& Data) {
 
 		json jsonBody;
 		jsonBody["type"] = "END";
-		jsonBody["game_uuid"] = std::to_string(g_state.startGameState["provider"]["timestamp"].get<int>());
+		//if (g_state.startGameState["provider"]["timestamp"]!=NULL)
+		//{
+		//	jsonBody["game_uuid"] = std::to_string(g_state.startGameState["provider"]["timestamp"].get<int>());
+		//}
+		//else {
+		//	// 测试用 线上不会触发
+		//	jsonBody["game_uuid"] = GenerateUUID();
+		//}
+		  // 安全访问 provider.timestamp
+		if (g_state.startGameState.contains("provider")) {
+			const auto& provider = g_state.startGameState["provider"];
+			if (provider.contains("timestamp") && !provider["timestamp"].is_null()) {
+				jsonBody["game_uuid"] = std::to_string(provider["timestamp"].get<size_t>());
+				std::cout << "Timestamp: " << provider["timestamp"] << std::endl;
+			}
+			else {
+				std::cerr << "Timestamp not found or is null" << std::endl;
+			}
+		}
+		else {
+			std::cerr << "Provider object not found" << std::endl;
+		}
+
+		//jsonBody["game_uuid"] = g_state.startGameState["provider"].value("timestamp", GenerateUUID());
 		jsonBody["event_id"] = std::to_string(lastMyData["provider"]["timestamp"].get<int>());
 		jsonBody["computer_no"] = getComputerName();
 		jsonBody["name"] = "";
-		jsonBody["game_mode"] = CS2_modeMap[lastMyData["map"]["mode"]];
+		//jsonBody["game_mode"] = CS2_modeMap[lastMyData["map"]["mode"]];
+		jsonBody["game_mode"] = lastMyData["map"]["mode"];
 		jsonBody["team_size"] = "";
 		jsonBody["user_game_rank"] = "";
-		nlohmann::json member;
-		member["role"] = "self";
-		member["id"] = lastMyData["provider"]["steamid"];
-		jsonBody["data"]["member"].push_back(member);
 		nlohmann::json data1;
 		data1["ren_tou_shu"] = lastMyData["player"]["match_stats"]["kills"];
 		data1["win"] = victory == false ? 0 : 1;
@@ -239,9 +280,14 @@ void HandleMatchEnd(const json& lastMyData, const json& Data) {
 		);
 		data1["time"] = duration.count();
 		jsonBody["data"] = data1;
+		nlohmann::json member;
+		member["role"] = "self";
+		member["id"] = lastMyData["provider"]["steamid"];
+		//TODO 我估计这是不对的jsonBody["data"]会被覆盖的吧
+		jsonBody["data"]["member"].push_back(member);
 		jsonBody["remark"] = "";
 		_sendHttp_cs2(jsonBody);
-		_sendHttp_cs2("KILL", "");
+		//_sendHttp_cs2("KILL", "");
 
 		LOG_IMMEDIATE("Match ended: " + std::string(victory ? "VICTORY" : "DEFEAT"));
 		// 这里添加发送结果的代码
@@ -264,21 +310,34 @@ void HandleMatchEnd(const json& lastMyData, const json& Data) {
 bool IsNewMatchStarting(const json& current, const json& last) {
 	// 条件1：上一状态不是live且当前是live
 	LOG_IMMEDIATE("IsNewMatchStarting::" + current.dump(4) + " last:" + last.dump(4));
-	if (!(last["map"]["phase"] == "warmup" && current["map"]["phase"] == "live")) {
+	/*if (!(last["map"]["phase"] == "warmup" && current["map"]["phase"] == "live")) {
+		return false;
+	}*/
+	// 带默认值
+
+	std::string ts = getNestedValue<std::string>(current, { "provider", "timestamp" }, "unknown");
+
+	//int id = getNestedValue<int>(data, { "provider", "id" }, -1);
+	//bool active = getNestedValue<bool>(data, { "provider", "active" }, false);
+
+	int score = getNestedValue<int>(current, { "map", "round" }, -1);
+	std::string mode = getNestedValue<std::string>(current, {"map", "phase"}, "");
+
+	if (score > 0 || mode == "warmup") {
 		return false;
 	}
-
+	
 	// 条件2：满足以下任一情况
-	return
+	return true;
 		// 情况A：回合数归零
-		current["map"]["round"] < last["map"]["round"] ||
+		//current["map"]["round"].get<int>() < last["map"]["round"].get<int>() ||
 
-		// 情况B：比分重置
-		(current["map"]["team_ct"]["score"] == 0 &&
-			current["map"]["team_t"]["score"] == 0) ||
+		//// 情况B：比分重置
+		//(current["map"]["team_ct"]["score"].get<int>() == 0 &&
+		//	current["map"]["team_t"]["score"].get<int>() == 0) ||
 
-		// 情况C：游戏模式改变
-		current["map"]["mode"] != last["map"]["mode"]
+		//// 情况C：游戏模式改变
+		//current["map"]["mode"] != last["map"]["mode"]
 
 		//||
 		//// 情况D：provider.timestamp跳变（超过10分钟）
@@ -307,7 +366,7 @@ void ProcessGSIData(const std::string& rawData) {
 			std::cerr << "Invalid JSON string!" << std::endl;
 			return;
 		}
-
+		//LOG_IMMEDIATE(data.dump(4));
 		// 更新最后活跃时间
 		g_state.lastUpdateTime = time(nullptr);
 
@@ -342,10 +401,10 @@ void ProcessGSIData(const std::string& rawData) {
 				_sendHttp_cs2("KILL", "");
 				HandleMatchEnd(myLastData, data);
 			}
-		}
+		} 
 
-		// 连杀检测 (仅当玩家活跃时)
-		if (isInGame && data["player"]["activity"] == "playing" && data["player"]["observer_slot"] == 0) {
+		// 连杀检测 (仅当玩家活跃时) //官匹练习时 observer_slot 可能不为0
+		if (isInGame && data["player"]["activity"] == "playing" && (data["player"]["steamid"] == data["provider"]["steamid"])) {
 			myLastData = data;
 			int currentKills = data["player"]["match_stats"]["kills"];
 			time_t now = time(nullptr);
@@ -408,6 +467,14 @@ void GSIServer() {
 
 	while (g_running) {
 		std::this_thread::sleep_for(std::chrono::milliseconds(1000)); // 避免过快循环
+
+		bool wuE = IsProcessRunning(L"5EClient.exe");
+		bool wanmei = IsProcessRunning(L"完美世界竞技平台.exe");
+
+		if (!wuE && !wanmei) {
+			continue;
+		}
+
 		sockaddr_in clientAddr;
 		int addrLen = sizeof(clientAddr);
 		SOCKET clientSocket = accept(g_serverSocket, (sockaddr*)&clientAddr, &addrLen);
@@ -437,8 +504,90 @@ void cs2Cleanup() {
 	WSACleanup();
 }
 
+std::string getCS2_location() {
+	std::string relativePath = "\\Counter-Strike Global Offensive\\game\\csgo\\cfg";
+	std::string fullPath = FindGamePath(relativePath);
+
+	if (!fullPath.empty()) {
+		std::cout << "完整路径: " << fullPath << std::endl;
+	}
+	else {
+		std::cout << "未找到指定路径" << std::endl;
+	}
+	return fullPath;
+}
+
+bool CreateGameStateIntegrationFile(const std::string& directoryPath) {
+	// 构建完整文件路径
+	std::string filePath = directoryPath + "\\gamestate_integration_custom123456.cfg";
+
+	// 检查文件是否已存在
+	std::ifstream testFile(filePath);
+	if (testFile.good()) {
+		std::cout << "文件已存在，不进行任何操作。" << std::endl;
+		testFile.close();
+		return false;
+	}
+	testFile.close();
+
+	// 创建目录（如果不存在）
+	if (CreateDirectoryA(directoryPath.c_str(), NULL) ||
+		GetLastError() == ERROR_ALREADY_EXISTS) {
+
+		// 创建并写入文件
+		std::ofstream outFile(filePath);
+		if (!outFile.is_open()) {
+			std::cerr << "无法创建文件: " << filePath << std::endl;
+			return false;
+		}
+
+		// 写入文件内容
+		outFile << "\"Console Sample v.1\"\n";
+		outFile << "{\n";
+		outFile << " \"uri\" \"http://127.0.0.1:3000\"\n";
+		outFile << " \"timeout\" \"5.0\"\n";
+		outFile << " \"buffer\"  \"0.1\"\n";
+		outFile << " \"throttle\" \"0.5\"\n";
+		outFile << " \"heartbeat\" \"60.0\"\n";
+		outFile << " \"output\"\n";
+		outFile << " {\n";
+		outFile << "   \"precision_time\" \"3\"\n";
+		outFile << "   \"precision_position\" \"1\"\n";
+		outFile << "   \"precision_vector\" \"3\"\n";
+		outFile << " }\n";
+		outFile << " \"data\"\n";
+		outFile << " {\n";
+		outFile << "   \"provider\"            \"1\"      // general info about client being listened to: game name, appid, client steamid, etc.\n";
+		outFile << "   \"map\"                 \"1\"      // map, gamemode, and current match phase ('warmup', 'intermission', 'gameover', 'live') and current score\n";
+		outFile << "   \"round\"               \"1\"      // round phase ('freezetime', 'over', 'live'), bomb state ('planted', 'exploded', 'defused'), and round winner (if any)\n";
+		outFile << "   \"player_id\"           \"1\"      // player name, clan tag, observer slot (ie key to press to observe this player) and team\n";
+		outFile << "   \"player_state\"        \"1\"      // player state for this current round such as health, armor, kills this round, etc.\n";
+		outFile << "   \"player_match_stats\"  \"1\"      // player stats this match such as kill, assists, score, deaths and MVPs\n";
+		outFile << " }\n";
+		outFile << "}\n";
+
+		outFile.close();
+		std::cout << "文件创建成功: " << filePath << std::endl;
+		return true;
+	}
+	else {
+		std::cerr << "无法创建目录: " << directoryPath << std::endl;
+		return false;
+	}
+}
+
+
+
 BOOL cs2Monitor() {
 	try {
+		std::string str = getCS2_location();
+		if (str=="" ||str.empty())
+		{
+			LOG_IMMEDIATE_ERROR("没有找到CS2游戏路径.");
+			return FALSE;
+		}
+
+		CreateGameStateIntegrationFile(str);
 		if (!InitNetwork()) return FALSE;
 		std::thread(GSIServer).detach();
 	}

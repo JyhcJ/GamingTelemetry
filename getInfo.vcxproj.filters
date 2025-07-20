@@ -54,12 +54,6 @@
     <ClInclude Include="LoLStateMonitor.h">
       <Filter>头文件</Filter>
     </ClInclude>
-    <ClInclude Include="ValStateMonitor.h">
-      <Filter>头文件</Filter>
-    </ClInclude>
-    <ClInclude Include="val.h">
-      <Filter>头文件</Filter>
-    </ClInclude>
     <ClInclude Include="dllmain.h">
       <Filter>头文件</Filter>
     </ClInclude>
@@ -70,6 +64,24 @@
       <Filter>头文件</Filter>
     </ClInclude>
     <ClInclude Include="cs2.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="nloJson.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="val.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="ValStateMonitor.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="ProcessMemoryReader.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="pubg_name.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="pubg.h">
       <Filter>头文件</Filter>
     </ClInclude>
   </ItemGroup>
@@ -113,12 +125,6 @@
     <ClCompile Include="LoLStateMonitor.cpp">
       <Filter>源文件</Filter>
     </ClCompile>
-    <ClCompile Include="val.cpp">
-      <Filter>源文件</Filter>
-    </ClCompile>
-    <ClCompile Include="ValStateMonitor.cpp">
-      <Filter>源文件</Filter>
-    </ClCompile>
     <ClCompile Include="py.cpp">
       <Filter>源文件</Filter>
     </ClCompile>
@@ -126,6 +132,18 @@
       <Filter>源文件</Filter>
     </ClCompile>
     <ClCompile Include="cs2.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="val.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="ValStateMonitor.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="pubg.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="pubg_name.cpp">
       <Filter>源文件</Filter>
     </ClCompile>
   </ItemGroup>

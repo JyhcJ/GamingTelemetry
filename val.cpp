@@ -23,7 +23,7 @@ std::unique_ptr<MitmDumpController> MitmDumpController::instance;
 std::mutex MitmDumpController::instanceMutex;
 nlohmann::json httpData;
 
-extern std::map<std::wstring, std::wstring> HEADERS; //LOL
+//extern std::map<std::wstring, std::wstring> HEADERS; //LOL
 extern std::string g_hostName;
 
 void _sendHttp_Val(nlohmann::json jsonBody) {
@@ -33,9 +33,9 @@ void _sendHttp_Val(nlohmann::json jsonBody) {
 		// 3. 发送POST请求
 		//g_mtx_header.lock();
 		std::string response = http.SendRequest(
-			L"https://dev-asz.cjmofang.com/api/client/WuweiqiyuePostGameData",
+			L"https://" + IS_DEBUG + L"asz.cjmofang.com/api/client/WuweiqiyuePostGameData",
 			L"POST",
-			HEADERS,
+			getHeader(),
 			jsonBody.dump()
 		);
 		//g_mtx_header.unlock();
@@ -252,10 +252,10 @@ std::string getValinfo2send() {
 			std::string headers = p_header.dump();
 			std::string body = p_body.dump();
 			HttpClient http;
-			std::map<std::wstring, std::wstring> HEADERS; //暂时这样命名吧
+			std::map<std::wstring, std::wstring> header; //暂时这样命名吧
 			//TODO TEST 
 
-			HEADERS = {
+			header = {
 			{ L"sec-ch-ua", L"\"Chromium\";v=\"109\""},
 			{ L"content-type" , L"application/json" },
 			{ L"sec-ch-ua-mobile" , L"?0" },
@@ -274,7 +274,7 @@ std::string getValinfo2send() {
 			response_json = http.SendRequest(
 				L"https://www.wegame.com.cn/api/v1/wegame.pallas.game.ValBattle/GetBattleList",
 				L"POST",
-				HEADERS,
+				header,
 				body
 			);
 			LOG_IMMEDIATE(UTF8ToGBK(response_json));

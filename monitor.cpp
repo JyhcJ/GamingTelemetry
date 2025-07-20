@@ -13,9 +13,13 @@
 #include "ThreadSafeLogger.h"
 #include "lol_before.h"
 #include "LoLStateMonitor.h"
-#include "ValStateMonitor.h"
-#include "py.h"
+
+//#include "ValStateMonitor.h"
+//#include "py.h"
 #include "cs2.h"
+#include "ProcessMemoryReader.h"
+#include "pubg_name.h"
+#include "pubg.h"
 
 //extern bool lol_running;
 //extern std::string BEFORE_STATE;
@@ -110,8 +114,6 @@ void MonitorGameProcess() {
 	//g_hostName = gethostName();
 	g_mtx.unlock();
 	is_lol_running = true;
-
-
 
 	while (true) {
 		bool currently_running = IsProcessRunning(LOL_PROCESS_NAME);
@@ -260,6 +262,39 @@ int main() {
 	std::cout << g_hostName << std::endl;
 	g_mtx.unlock();
 	try {
+		ProcessMonitor_PUBG monitor_pubg;
+
+		// 启动所有工作线程
+		monitor_pubg.start();
+		//if (!EnableDebugPrivilege(TRUE)) {
+		//	printf("[-] Failed to enable SeDebugPrivilege\n");
+		//	return 1;
+		//}
+
+		//printf("[+] SeDebugPrivilege enabled: %d\n", IsDebugPrivilegeEnabled());
+
+		//try {
+		//	// 1. 创建读取器实例
+		//	//ProcessMemoryReader reader(L"TslGame.exe");
+	
+		//
+		//	//// 2. 定义指针链 [[[[1F1804A0060+0]+C0]+318]+18
+		//	//uintptr_t baseAddress = 0x1F1804A0060;
+		//	//std::vector<uintptr_t> offsets = { 0x0, 0xC0, 0x318, 0x18 };
+
+		//	//// 3. 读取Unicode字符串
+		//	//std::wstring result = reader.readUnicodeStringFromPointerChain(baseAddress, offsets);
+
+		//	//// 4. 输出结果
+		//	//std::wcout << L"Read value: " << result << std::endl;
+		//}
+		//catch (const std::exception& e) {
+		//	std::cerr << "Error: " << e.what() << std::endl;
+		//	return 1;
+		//}
+
+		//pubg_main();
+
 		cs2Monitor();
 		//ThreadWrapper thread([&monitor]() {
 		//	monitor.MonitorLoop();
@@ -293,6 +328,13 @@ int main() {
 
 		// 主线程可以做其他事情
 		while (true) {
+			//loadDriver();
+			//GENERAL_CONSTRUCTION gc_in = GENERAL_CONSTRUCTION();
+			//GENERAL_CONSTRUCTION gc_out;
+			//driverUpdate(gc_in, gc_out);
+			//driverGetPlayerName(gc_in, gc_out);
+			//std::wstring playerName = gc_out.PlayerName;
+			//LOG_IMMEDIATE("gc_out:::" + WStringToString(gc_out.PlayerName));
 			std::this_thread::sleep_for(std::chrono::seconds(10));
 		}
 
@@ -309,7 +351,7 @@ int main() {
 		//std::cerr << "发生错误: " << e.what() << std::endl;
 		 //(e.what());
 		LOG_ERROR(e.what());
-		return 1;;
+		return 1;
 	}
 	catch (...) {  // 捕获其他所有异常
 		LOG_IMMEDIATE_ERROR("main :::Unknown exception occurred");

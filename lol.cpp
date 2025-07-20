@@ -41,6 +41,7 @@
 #include <wininet.h>
 #include <shellapi.h>
 #include "lol_before.h"
+#include "constant.h"
 
 
 #pragma comment(lib, "winhttp.lib")
@@ -90,6 +91,7 @@ const int POLL_INTERVAL = 5;
 //const std::wstring LCU_URL = L"https://127.0.0.1:2999/liveclientdata/eventdata";
 const std::wstring LCU_URL = L"https://127.0.0.1:2999/liveclientdata/allgamedata";
 const std::wstring NAME_URL = L"https://127.0.0.1:2999/liveclientdata/activeplayername";
+
 std::map<std::wstring, std::wstring> HEADERS = {
 	/*	{ L"Content-Type", L"application/json" },
 		{ L"User-Agent", L"Mozilla/5.0" },
@@ -98,7 +100,8 @@ std::map<std::wstring, std::wstring> HEADERS = {
 		{   L"organizationType",L"\"BAR\""                                                                                                          },
 		{   L"merchantId",L"53" },
 		{   L"barId",L"98"                                                                                                                          },
-		{   L"token",L"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJSZW1vdGVJcCI6IiIsIkxvY2FsTG9naW4iOjAsIkNvbnRleHQiOnsidXNlcl9pZCI6MjQ3LCJ1c2VyX25hbWUiOiJ4eHgiLCJ1dWlkIjoiIiwicmlkIjoxOCwibWFudWZhY3R1cmVfaWQiOjUzLCJiYXJfaWQiOjk4LCJyb290X2lkIjowLCJvcmdhbml6YXRpb25fdHlwZSI6IiIsInBsYXRmb3JtIjoiYmFyY2xpZW50In0sImV4cCI6MTc1MjEzODc4N30.OxuSFEDQOq31KK9Vh-uwL9phsuV5zovluBptoNC3eXw"                                                                                                                  },
+		//{   L"token",L"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJSZW1vdGVJcCI6IiIsIkxvY2FsTG9naW4iOjAsIkNvbnRleHQiOnsidXNlcl9pZCI6MjQ3LCJ1c2VyX25hbWUiOiJ4eHgiLCJ1dWlkIjoiIiwicmlkIjoxOCwibWFudWZhY3R1cmVfaWQiOjUzLCJiYXJfaWQiOjk4LCJyb290X2lkIjowLCJvcmdhbml6YXRpb25fdHlwZSI6IiIsInBsYXRmb3JtIjoiYmFyY2xpZW50In0sImV4cCI6MTc1MjEzODc4N30.OxuSFEDQOq31KK9Vh-uwL9phsuV5zovluBptoNC3eXw"                                                                                                                  },
+		{   L"token",token测试,                                                                                                                  },
 		{   L"User-Agent",L"Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/136.0.0.0 Safari/537.36\r\n"        },
 		{   L"language",L"ZH_CN" },
 		{   L"sec-ch-ua-platform",L"\"Windows\""                                                                                                    },
@@ -645,9 +648,9 @@ void _sendHttp_LOL(PostGameData pgd) {
 		// 3. 发送POST请求
 		g_mtx_header.lock();
 		std::string response = http.SendRequest(
-			L"https://dev-asz.cjmofang.com/api/client/PostGameData",
+			L"https://" + IS_DEBUG + L"asz.cjmofang.com/api/client/PostGameData",
 			L"POST",
-			HEADERS,
+			getHeader(),
 			jsonBody
 		);
 		g_mtx_header.unlock();
@@ -672,12 +675,21 @@ void _sendHttp_LOL(nlohmann::json jsonBody) {
 		// 3. 发送POST请求
 		g_mtx_header.lock();
 		std::string response = http.SendRequest(
-			L"https://dev-asz.cjmofang.com/api/client/PostGameData",
+			L"https://" + IS_DEBUG + L"asz.cjmofang.com/api/client/PostGameData",
 			L"POST",
-			HEADERS,
+			getHeader(),
 			jsonBody.dump()
 		);
 		g_mtx_header.unlock();
+
+		 //使用 range-based for loop 遍历
+		//for (const auto& pair : getHeader()) {
+		//	const std::wstring& key = pair.first;
+		//	const std::wstring& value = pair.second;
+		//	LOG_IMMEDIATE( WStringToString( key )+ ": " + WStringToString(value));
+		//	//std::wcout  << key << L": " << value << std::endl;
+		//}
+
 		LOG_IMMEDIATE("Response: " + UTF8ToGBK(response));
 	}
 	catch (const std::exception& e) {
@@ -719,6 +731,7 @@ extern "C" __declspec(dllexport) const int setHeader(const char* token1, const c
 		LOG_IMMEDIATE_ERROR("setHeader接收的为空");
 		return 0;
 	}*/
+
 	//LOG_IMMEDIATE_DEBUG("DLL:Token:" + token);
 	LOG_IMMEDIATE_DEBUG("DLL:manufactureId:" + manufactureId);
 	LOG_IMMEDIATE_DEBUG("DLL:barId:" + barId);
@@ -732,7 +745,7 @@ extern "C" __declspec(dllexport) const int setHeader(const char* token1, const c
 				{   L"barId",	stringTOwstring(barId)                                                                                                                          },
 				//{   L"token",L"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJSZW1vdGVJcCI6IiIsIkxvY2FsTG9naW4iOjAsIkNvbnRleHQiOnsidXNlcl9pZCI6MjQ3LCJ1c2VyX25hbWUiOiJ4eHgiLCJ1dWlkIjoiIiwicmlkIjoxOCwibWFudWZhY3R1cmVfaWQiOjUzLCJiYXJfaWQiOjk4LCJyb290X2lkIjowLCJvcmdhbml6YXRpb25fdHlwZSI6IiIsInBsYXRmb3JtIjoiYmFyY2xpZW50In0sImV4cCI6MTc1MDQ2ODMwMH0.21sEbRTirJggWvWlOygMOczAQWs8vQd0hh0ZKJuNTbs"                                                                                                                  },
 				{   L"token",       stringTOwstring(token)                                                                                                             },
-				{   L"User-Agent",L"Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/136.0.0.0 Safari/537.36\r\n"        },
+				{   L"User-Agent",L"Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/136.0.0.0 Safari/537.36"        },
 				{   L"language",L"ZH_CN" },
 				{   L"sec-ch-ua-platform",L"\"Windows\""                                                                                                    },
 				{   L"sec-ch-ua-mobile",L"?0"                                                                                                               },

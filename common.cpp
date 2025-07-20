@@ -12,8 +12,11 @@
 #include <regex>
 #include <Shlwapi.h>
 #include <map>
+#include <iostream>
+#include "HttpClient.h"
+#include "constant.h"
 
-
+extern std::map<std::wstring, std::wstring> HEADERS;
 
 void call_调试输出信息(const char* pszFormat, ...)
 {
@@ -373,6 +376,7 @@ bool CheckFileExistsWinAPI(const std::wstring& filePath) {
 	return (attrib != INVALID_FILE_ATTRIBUTES &&
 		!(attrib & FILE_ATTRIBUTE_DIRECTORY));
 }
+
 std::wstring GetModuleDir() {
 	wchar_t path[MAX_PATH] = { 0 };
 	GetModuleFileNameW(NULL, path, MAX_PATH);
@@ -432,6 +436,7 @@ std::wstring GetLastErrorString(DWORD errorCode = 0) {
 
 	return message;
 }
+
 bool _InjectDll(DWORD pid, const std::wstring& dllPath) {
 	// 打开目标进程
 	HANDLE hProcess = OpenProcess(PROCESS_ALL_ACCESS, FALSE, pid);
@@ -566,37 +571,259 @@ void injectDLL(std::wstring process, std::wstring dllName) {
 	}
 }
 
+std::string GenerateUUID() {
+	GUID guid;
+	CoCreateGuid(&guid);
+
+	char uuid[37]; // 格式：xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx + '\0'
+	sprintf_s(uuid,
+		"%08X-%04X-%04X-%02X%02X-%02X%02X%02X%02X%02X%02X",
+		guid.Data1, guid.Data2, guid.Data3,
+		guid.Data4[0], guid.Data4[1],
+		guid.Data4[2], guid.Data4[3],
+		guid.Data4[4], guid.Data4[5],
+		guid.Data4[6], guid.Data4[7]);
+
+	return std::string(uuid);
+}
+
 std::string getComputerName() {
 	return WStringToString(GetComputerNameWString());
 }
 
 std::map<std::wstring, std::wstring> getHeader() {
-	std::map<std::wstring, std::wstring> HEADERS = {
-		/*	{ L"Content-Type", L"application/json" },
-			{ L"User-Agent", L"Mozilla/5.0" },
-			{ L"token", L"{{bToken}}" },*/
+	//std::map<std::wstring, std::wstring> HEADERS = {
+	//	/*	{ L"Content-Type", L"application/json" },
+	//		{ L"User-Agent", L"Mozilla/5.0" },
+	//		{ L"token", L"{{bToken}}" },*/
 
-			{   L"organizationType",L"\"BAR\""                                                                                                          },
-			{   L"merchantId",L"53" },
-			{   L"barId",L"98"                                                                                                                          },
-			{   L"token",L"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJSZW1vdGVJcCI6IiIsIkxvY2FsTG9naW4iOjAsIkNvbnRleHQiOnsidXNlcl9pZCI6MjQ3LCJ1c2VyX25hbWUiOiJ4eHgiLCJ1dWlkIjoiIiwicmlkIjoxOCwibWFudWZhY3R1cmVfaWQiOjUzLCJiYXJfaWQiOjk4LCJyb290X2lkIjowLCJvcmdhbml6YXRpb25fdHlwZSI6IiIsInBsYXRmb3JtIjoiYmFyY2xpZW50In0sImV4cCI6MTc1MjEzODc4N30.OxuSFEDQOq31KK9Vh-uwL9phsuV5zovluBptoNC3eXw"                                                                                                                  },
-			{   L"User-Agent",L"Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/136.0.0.0 Safari/537.36\r\n"        },
-			{   L"language",L"ZH_CN" },
-			{   L"sec-ch-ua-platform",L"\"Windows\""                                                                                                    },
-			{   L"sec-ch-ua-mobile",L"?0"                                                                                                               },
-			{   L"Accept",L"application/json, text/plain, */*"                                                                                          },
-			{   L"Content-Type",L"application/json"                                                                                                     },
-			//	{   L"Referer",L"https://dev-asz.cjmofang.com/activity/activityManagement/createActivity/MODE_SIGN/0/add/0"                                 },
-			{   L"sec-ch-ua",L"\"Chromium\";v=\"136\", \"Google Chrome\";v=\"136\", \"Not.A/Brand\";v=\"99\""                                           },
-			{   L"Accept-Encoding",L"gzip, deflate, br"                                                                                                 },
-			{   L"Connection",L"keep-alive"                                                                                                             },
-			{   L"Cache-Control",L"no-cache"                                                                                                            },
-			{   L"Host",L"127.0.0.1:8000"                                                                                                                }
-	};
+	//		{   L"organizationType",L"\"BAR\""                                                                                                          },
+	//		{   L"merchantId",L"53" },
+	//		{   L"barId",L"98"                                                                                                                          },
+	//		{   L"token",L"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJSZW1vdGVJcCI6IiIsIkxvY2FsTG9naW4iOjAsIkNvbnRleHQiOnsidXNlcl9pZCI6MjQ3LCJ1c2VyX25hbWUiOiJ4eHgiLCJ1dWlkIjoiIiwicmlkIjoxOCwibWFudWZhY3R1cmVfaWQiOjUzLCJiYXJfaWQiOjk4LCJyb290X2lkIjowLCJvcmdhbml6YXRpb25fdHlwZSI6IiIsInBsYXRmb3JtIjoiYmFyY2xpZW50In0sImV4cCI6MTc1MzQyMjIzMX0.80UGut_XaJKn1h2G_Mr-XJ66ikTFDT4jtY4Mw9FKhPA"                                                                                                                  },
+	//		{   L"User-Agent",L"Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/136.0.0.0 Safari/537.36"        },
+	//		{   L"language",L"ZH_CN" },
+	//		{   L"sec-ch-ua-platform",L"\"Windows\""                                                                                                    },
+	//		{   L"sec-ch-ua-mobile",L"?0"                                                                                                               },
+	//		{   L"Accept",L"application/json, text/plain, */*"                                                                                          },
+	//		{   L"Content-Type",L"application/json"                                                                                                     },
+	//		//	{   L"Referer",L"https://dev-asz.cjmofang.com/activity/activityManagement/createActivity/MODE_SIGN/0/add/0"                                 },
+	//		{   L"sec-ch-ua",L"\"Chromium\";v=\"136\", \"Google Chrome\";v=\"136\", \"Not.A/Brand\";v=\"99\""                                           },
+	//		{   L"Accept-Encoding",L"gzip, deflate, br"                                                                                                 },
+	//		{   L"Connection",L"keep-alive"                                                                                                             },
+	//		{   L"Cache-Control",L"no-cache"                                                                                                            },
+	//		{   L"Host",L"127.0.0.1:8000"                                                                                                                }
+	//};
 	return HEADERS;
 
 }
 
+std::string GetSteamInstallPath() {
+	HKEY hKey;
+	// 1. 修改为 HKEY_CURRENT_USER
+	// 2. 使用宽字符版本(W)或ANSI版本(A)保持一致性
+	if (RegOpenKeyExW(HKEY_CURRENT_USER, L"SOFTWARE\\Valve\\Steam", 0, KEY_READ, &hKey) != ERROR_SUCCESS) {
+		return "";
+	}
 
+	wchar_t steamPath[MAX_PATH];
+	DWORD bufferSize = sizeof(steamPath);
+	// 3. 保持宽字符版本一致性
+	if (RegQueryValueExW(hKey, L"SteamPath", NULL, NULL, (LPBYTE)steamPath, &bufferSize) != ERROR_SUCCESS) {
+		RegCloseKey(hKey);
+		return "";
+	}
 
+	RegCloseKey(hKey);
 
+	// 4. 将宽字符转换为多字节字符串
+	char narrowPath[MAX_PATH];
+	WideCharToMultiByte(CP_UTF8, 0, steamPath, -1, narrowPath, MAX_PATH, NULL, NULL);
+	return narrowPath;
+}
+
+std::string FindGamePath(const std::string& relativePath) {
+	std::string steamPath = GetSteamInstallPath();
+	if (steamPath.empty()) {
+		return "";
+	}
+
+	// 检查常见安装位置
+	std::vector<std::string> possiblePaths = {
+		steamPath + "\\steamapps\\common" + relativePath,
+		steamPath + "\\steamapps\\common" + relativePath.substr(1), // 去掉开头的反斜杠
+		"C:\\Program Files (x86)\\Steam\\steamapps\\common" + relativePath,
+		"D:\\SteamLibrary\\steamapps\\common" + relativePath
+	};
+
+	for (const auto& path : possiblePaths) {
+		DWORD attrib = GetFileAttributesA(path.c_str());
+		if (attrib != INVALID_FILE_ATTRIBUTES && (attrib & FILE_ATTRIBUTE_DIRECTORY)) {
+			return path;
+		}
+	}
+
+	return "";
+}
+
+BOOL Call_提升权限(BOOL bEnable) //OpenProcess失败的情况调用
+{
+	BOOL fOK = FALSE;
+	HANDLE hToken;
+	if (OpenProcessToken(GetCurrentProcess(), TOKEN_ADJUST_PRIVILEGES, &hToken)) //打开进程访问令牌
+	{
+		TOKEN_PRIVILEGES tp;
+		LUID luid;
+		LookupPrivilegeValue(NULL, SE_DEBUG_NAME, &luid);
+		tp.PrivilegeCount = 1;
+		tp.Privileges[0].Luid = luid;
+		tp.Privileges[0].Attributes = bEnable ? SE_PRIVILEGE_ENABLED : 0;
+		AdjustTokenPrivileges(hToken, FALSE, &tp, sizeof(tp), NULL, NULL);
+		fOK = (GetLastError() == ERROR_SUCCESS);
+		CloseHandle(hToken);
+	}
+	return fOK;
+}
+
+void EnableDebugPriv()
+{
+
+	HANDLE hToken;
+
+	LUID sedebugnameValue;
+
+	TOKEN_PRIVILEGES tkp;
+
+	OpenProcessToken(GetCurrentProcess(), TOKEN_ADJUST_PRIVILEGES | TOKEN_QUERY, &hToken);
+
+	LookupPrivilegeValue(NULL, SE_DEBUG_NAME, &sedebugnameValue);
+
+	tkp.PrivilegeCount = 1;
+
+	tkp.Privileges[0].Luid = sedebugnameValue;
+
+	tkp.Privileges[0].Attributes = SE_PRIVILEGE_ENABLED;
+
+	AdjustTokenPrivileges(hToken, false, &tkp, sizeof tkp, NULL, NULL);
+
+	CloseHandle(hToken);
+}
+
+BOOL EnableDebugPrivilege(BOOL bEnable) {
+	HANDLE hToken;
+	if (!OpenProcessToken(GetCurrentProcess(), TOKEN_ADJUST_PRIVILEGES | TOKEN_QUERY, &hToken)) {
+		DWORD err = GetLastError();
+		printf("[!] OpenProcessToken failed (Error %d)\n", err);
+		return FALSE;
+	}
+
+	TOKEN_PRIVILEGES tp = { 0 };
+	tp.PrivilegeCount = 1;
+	if (!LookupPrivilegeValue(NULL, SE_DEBUG_NAME, &tp.Privileges[0].Luid)) {
+		DWORD err = GetLastError();
+		printf("[!] LookupPrivilegeValue failed (Error %d)\n", err);
+		CloseHandle(hToken);
+		return FALSE;
+	}
+
+	tp.Privileges[0].Attributes = bEnable ? SE_PRIVILEGE_ENABLED : 0;
+	if (!AdjustTokenPrivileges(hToken, FALSE, &tp, sizeof(tp), NULL, NULL)) {
+		DWORD err = GetLastError();
+		printf("[!] AdjustTokenPrivileges failed (Error %d)\n", err);
+		CloseHandle(hToken);
+		return FALSE;
+	}
+
+	// 检查是否真正生效
+	DWORD lastError = GetLastError();
+	if (lastError == ERROR_NOT_ALL_ASSIGNED) {
+		printf("[!] AdjustTokenPrivileges: Not all privileges assigned (Error %d)\n", lastError);
+		CloseHandle(hToken);
+		return FALSE;
+	}
+
+	CloseHandle(hToken);
+	return (lastError == ERROR_SUCCESS);
+}
+// 将 GetLastError() 的错误码转换为错误信息字符串
+std::string GetLastErrorAsString(std::string str, DWORD errorCode) {
+	if (errorCode == 0) {
+		errorCode = GetLastError(); // 如果没有传入错误码，自动获取最新的
+	}
+
+	LPSTR messageBuffer = nullptr;
+	DWORD size = FormatMessageA(
+		FORMAT_MESSAGE_ALLOCATE_BUFFER |  // 自动分配缓冲区
+		FORMAT_MESSAGE_FROM_SYSTEM |      // 从系统错误表获取消息
+		FORMAT_MESSAGE_IGNORE_INSERTS,    // 忽略插入参数
+		nullptr,                          // 无源字符串
+		errorCode,                        // 错误码
+		MAKELANGID(LANG_NEUTRAL, SUBLANG_DEFAULT), // 默认语言
+		(LPSTR)&messageBuffer,            // 输出缓冲区
+		0,                               // 最小缓冲区大小
+		nullptr                          // 无参数
+	);
+
+	if (size == 0) {
+		return "Failed to retrieve error message.";
+	}
+
+	std::string errorMessage(messageBuffer, size);
+	LocalFree(messageBuffer); // 释放 FormatMessage 分配的缓冲区
+
+	// 移除末尾的换行符（如果有）
+	if (!errorMessage.empty() && errorMessage.back() == '\n') {
+		errorMessage.pop_back();
+	}
+	if (!errorMessage.empty() && errorMessage.back() == '\r') {
+		errorMessage.pop_back();
+	}
+	LOG_IMMEDIATE_ERROR("Error Code: " + std::to_string(errorCode) + " - " + errorMessage + "-" + str);
+	return errorMessage;
+}
+
+void _sendHttp(std::wstring url,std::string jsonDump,std::string& ret) {
+	HttpClient http;
+	LOG_IMMEDIATE(jsonDump);
+
+	try {
+		// 3. 发送POST请求
+		std::string response = http.SendRequest(
+			L"https://" + IS_DEBUG + url,
+			L"POST",
+			getHeader(),
+			jsonDump
+		);
+
+		LOG_IMMEDIATE("Response: " + UTF8ToGBK(response));
+		ret = response;
+	}
+	catch (const std::exception& e) {
+		LOG_IMMEDIATE_ERROR("_sendHttp:::");
+		LOG_IMMEDIATE_ERROR(e.what());
+
+	}
+	catch (...) {  // 捕获其他所有异常
+		LOG_IMMEDIATE_ERROR("_sendHttp :::Unknown exception occurred");
+	}
+}
+
+ DWORD GetProccessPath(DWORD pid, wchar_t* processName, DWORD size) {
+	HANDLE hProcess = OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION, 0, pid);
+	if (!QueryFullProcessImageNameW(hProcess, 0, processName, (DWORD*)&size)) { size = 0; };
+	CloseHandle(hProcess);
+	return size;
+}
+
+ std::pair<BYTE*, DWORD> GetModuleInfo(DWORD pid, std::wstring name)
+ {
+	 std::pair<BYTE*, DWORD> info;
+	 HANDLE snapshot = CreateToolhelp32Snapshot(TH32CS_SNAPMODULE, pid);
+	 if (snapshot != INVALID_HANDLE_VALUE) {
+		 MODULEENTRY32W modEntry = { sizeof(modEntry) };
+		 while (Module32NextW(snapshot, &modEntry)) {
+			 if (name == modEntry.szModule) { info = { (BYTE*)modEntry.modBaseAddr, modEntry.modBaseSize }; break; }
+		 }
+	 }
+	 return info;
+ }

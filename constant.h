@@ -2,6 +2,17 @@
 #include <map>
 #include <string>
 
+///token为默认token
+
+//线上配置 
+//const std::wstring IS_DEBUG = L"";
+//const std::wstring token测试 = L"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJSZW1vdGVJcCI6IiIsIkxvY2FsTG9naW4iOjAsIkNvbnRleHQiOnsidXNlcl9pZCI6MjcxLCJ1c2VyX25hbWUiOiLpqaznq4vlm70iLCJ1dWlkIjoiIiwicmlkIjoxOCwibWFudWZhY3R1cmVfaWQiOjUzLCJiYXJfaWQiOjk5LCJyb290X2lkIjowLCJvcmdhbml6YXRpb25fdHlwZSI6IiIsInBsYXRmb3JtIjoiYmFyY2xpZW50In0sImV4cCI6MTc1MzQ0MTQxMH0.IUm74RI2IjXRdxT6fUbNcUeTD1Q7SqJ1cgeiJdfgwW4";
+//线下配置
+const std::wstring IS_DEBUG = L"dev-";
+const std::wstring token测试 = L"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJSZW1vdGVJcCI6IiIsIkxvY2FsTG9naW4iOjAsIkNvbnRleHQiOnsidXNlcl9pZCI6MjQ3LCJ1c2VyX25hbWUiOiJ4eHgiLCJ1dWlkIjoiIiwicmlkIjoxOCwibWFudWZhY3R1cmVfaWQiOjUzLCJiYXJfaWQiOjk4LCJyb290X2lkIjowLCJvcmdhbml6YXRpb25fdHlwZSI6IiIsInBsYXRmb3JtIjoiYmFyY2xpZW50In0sImV4cCI6MTc1MjEzODc4N30.OxuSFEDQOq31KK9Vh-uwL9phsuV5zovluBptoNC3eXw";
+//PUBG API Key(10req/min) 可申请多个提高容量
+static const std::string _PUBG_APIKEY = "Bearer eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJqdGkiOiJlZGNjMDYwMC0zYWNiLTAxM2UtMjBlZC02ZThjNzIzMTJmZDIiLCJpc3MiOiJnYW1lbG9ja2VyIiwiaWF0IjoxNzUxNjA5NjA5LCJwdWIiOiJibHVlaG9sZSIsInRpdGxlIjoicHViZyIsImFwcCI6Ii03YmFjMDQ2My1hMDQ4LTRiN2QtYjdhNy0wNmI1MjlhNWEwMjYifQ.V-GZIMArqvqOuQhYfQL61Jbv4NEnmJMLcXquQS_5bPQ";
+
 static const std::wstring _AUTHCOM = L"wmic PROCESS WHERE name='LeagueClientUx.exe' GET commandline";
 static const std::string _APPPORT = "--app-port=";
 static const std::string _AUTHTOKEN = "--remoting-auth-token";
@@ -139,6 +150,22 @@ static std::map<std::string, std::string> CS2_modeMap = {
 	{"casual", "NORMAL"},// 官匹人机
 	{"custom", "QUICK"},//TODO 练习
 };
+
+static std::map<std::string, std::string> PUBG_modeMap = {
+	{"competitive", "RANK"}
+};
+
+static std::map<std::string, std::string> PUBG_teamSize = {
+	{"solo", "ONE"},
+	{"solo-fpp", "ONE"},
+	{"duo", "TWO"},
+	{"duo-fpp", "TWO"},
+	{"squad", "FOUR"},
+	{"squad-fpp", "FOUR"},
+	//{"competitive", "UNLIMIT"},
+	//{"competitive", "OVER_FOUR"},
+};
+
 
 
 //BOMB=普通模式,DEATHMATCH=乱斗模式,GUN_GAME=武装升级,ONE_FOR_ALL=克隆模式,QUICK_BOMB=爆能快攻,SNOWBALL_FIGHT=雪球大战,SWIFTPLAY=极速模式,HURM=团队乱斗,CUSTOM=自定义,RANK=竞技模式

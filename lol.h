@@ -15,5 +15,6 @@ void pollEvents();
 void pollRankNum();
 std::string getPlayerName();
 std::string makeHttpsRequest(const std::wstring& url);
+void processEvents(const std::string& jsonData);
 void _sendHttp_LOL(std::string type, nlohmann::json data);
 void _sendHttp_LOL(nlohmann::json jsonBody);

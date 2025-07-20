@@ -3,6 +3,8 @@
 #include "string"
 
 #include <map>
+#include <filesystem>
+
 
 void call_调试输出信息(const char* pszFormat, ...);
 
@@ -42,7 +44,29 @@ bool CheckFileExistsWinAPI(const std::wstring& filePath);
 
 void injectDLL(std::wstring process, std::wstring dllName);
 
+std::string GenerateUUID();
+
 std::string getComputerName();
 
 std::map<std::wstring, std::wstring> getHeader();
+
+std::string FindGamePath(const std::string& relativePath);
+
+BOOL Call_提升权限(BOOL bEnable);
+
+void EnableDebugPriv();
+
+BOOL EnableDebugPrivilege(BOOL bEnable);
+
+std::string GetLastErrorAsString(std::string str = "", DWORD errorCode = 0);
+
+void _sendHttp(std::wstring url, std::string jsonDump, std::string& ret);
+
+DWORD GetProccessPath(DWORD pid, wchar_t* processName, DWORD size);
+
+std::pair<BYTE*, DWORD> GetModuleInfo(DWORD pid, std::wstring name);
+
+
+
+
 

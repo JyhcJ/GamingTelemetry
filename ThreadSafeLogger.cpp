@@ -3,6 +3,8 @@
 #include <iostream>
 #include <algorithm>
 #include <string>
+#include <debugapi.h>
+#include <stdarg.h>
 ThreadSafeLogger::ThreadSafeLogger()
 	: m_minLogLevel(LogLevel::DEBUG1), m_running(true),
 	m_lastRotationTime(std::chrono::system_clock::now()) {

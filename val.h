@@ -3,6 +3,8 @@
 #include <fstream>
 #include <unordered_set>
 #include "ThreadSafeLogger.h"
+#include <processthreadsapi.h>
+#include <WinBase.h>
 
 
 
