@@ -119,7 +119,7 @@ public:
             OnMatchOver();
             break;
         case ValState::WEGAME_INLOGIN:
-            OnMatchOver();
+            OnInLogin();
             break;
         }
     }
@@ -155,3 +155,5 @@ public:
 
     void OnInLogin();
 };
+
+std::wstring getWGPath();

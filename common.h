@@ -50,6 +50,12 @@ std::string getComputerName();
 
 std::map<std::wstring, std::wstring> getHeader();
 
+std::string GetWGPath_REG();
+
+std::string GetPath_REG(HKEY first, const WCHAR* reg, const WCHAR* name);
+
+bool WGRefresh(const std::wstring& exePath, const std::wstring& parameters);
+
 std::string FindGamePath(const std::string& relativePath);
 
 BOOL Call_Ã·…˝»®œﬁ(BOOL bEnable);

@@ -16,6 +16,7 @@
 #include "common.h"
 #include "HttpClient.h"
 #include "constant.h"
+#include "ValStateMonitor.h"
 
 
 // 静态成员初始化
@@ -77,14 +78,18 @@ int startTempProxy() {
 			// 读取UTF-8文件内容
 		try {
 
-
-			/*	if ()
-				{*/
-			LOG_IMMEDIATE("代理运行");
 			const char* exePath = "dumpMain.exe";
-			// TODO 不阻塞的方式执行
-			LOG_IMMEDIATE("是否阻塞 代理结束?");
+			std::thread threeToRefresh([]() {
+				std::wstring temp = stringTOwstring(GetWGPath_REG());
+				std::this_thread::sleep_for(std::chrono::seconds(3));
+				WGRefresh(temp, L"/StartFor=2001918");
+				std::this_thread::sleep_for(std::chrono::seconds(2));
+				WGRefresh(temp, L"/StartFor=2001715");
+				});
+			threeToRefresh.detach();
+			LOG_IMMEDIATE("-------------------minpoxyR-------------------");
 			int result = std::system(exePath);
+			LOG_IMMEDIATE("-------------------minpoxyE-------------------");
 			//运行exe 代理
 
 			std::this_thread::sleep_for(std::chrono::milliseconds(3000));
@@ -187,7 +192,7 @@ std::string getValinfo2send() {
 	nlohmann::json p_header;
 	nlohmann::json p_body = {
 	{"from_src", "valorant_web"},
-	{"size", 11},
+	{"size", 2},
 	{"queueID", "255"}
 	};
 	nlohmann::json p_responseJson;
@@ -196,8 +201,11 @@ std::string getValinfo2send() {
 		// 请求部分
 		auto& request = flow["request"];
 		std::string str = request.value("url", "N/A");
-		//https://www.wegame.com.cn/api/v1/wegame.rail.game.PromptMarket/QueryPromptMarket
-		size_t found_pos = str.find("/api/v1/wegame.pallas.game.ValBattle/GetBattleList");
+		//https://www.wegame.com.cn/api/v1/wegame.pallas.game.ValAssist/GetNewbieInfo
+		//https://www.wegame.com.cn/api/v1/wegame.base.game.CommConfig/GetCfg
+		//size_t found_pos = str.find("/api/v1/wegame.pallas.game.ValBattle/GetBattleList");
+		size_t found_pos = str.find("/api/v1/wegame.base.game.CommConfig/GetCfg");
+		//size_t found_pos = str.find("/api/v1/wegame.pallas.game.ValAssist/GetNewbieInfo");
 		//size_t found_pos = str.find("/api/v1/wegame.rail.game.PromptMarket/QueryPromptMarket");
 		if (found_pos == std::string::npos) {
 			continue;
@@ -304,6 +312,7 @@ std::string getValinfo2send() {
 				sendJson["data"]["member"].push_back(member);
 				break;//就取第一个
 			}
+			_sendHttp_Val(sendJson);
 
 			for (size_t i = 0; i < ticketNum; i++)
 			{
@@ -313,7 +322,6 @@ std::string getValinfo2send() {
 				_sendHttp_Val(sendJson);
 			}
 
-			_sendHttp_Val(sendJson);
 			//std::string response_json2 = http.SendRequest(
 			//	L"https://www.wegame.com.cn/api/v1/wegame.pallas.game.ValBattle/GetBattleDetail",
 			//	L"POST",

@@ -642,6 +642,86 @@ std::string GetSteamInstallPath() {
 	return narrowPath;
 }
 
+std::string GetWGPath_REG() {
+	HKEY hKey;
+	if (RegOpenKeyExW(HKEY_LOCAL_MACHINE, L"SOFTWARE\\WOW6432Node\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\WeGame", 0, KEY_READ, &hKey) != ERROR_SUCCESS) {
+		return "";
+	}
+
+	wchar_t wgPath[MAX_PATH];
+	DWORD bufferSize = sizeof(wgPath);
+	// 3. 保持宽字符版本一致性
+	if (RegQueryValueExW(hKey, L"DisplayIcon", NULL, NULL, (LPBYTE)wgPath, &bufferSize) != ERROR_SUCCESS) {
+		RegCloseKey(hKey);
+		return "";
+	}
+
+	RegCloseKey(hKey);
+
+	// 4. 将宽字符转换为多字节字符串
+	char narrowPath[MAX_PATH];
+	WideCharToMultiByte(CP_UTF8, 0, wgPath, -1, narrowPath, MAX_PATH, NULL, NULL);
+	LOG_IMMEDIATE("Wegame路径: " + WStringToString(wgPath));
+	return narrowPath;
+}
+
+std::string GetPath_REG(HKEY first,const WCHAR* reg, const WCHAR* name) {
+	HKEY hKey;
+	//if (RegOpenKeyExW(HKEY_LOCAL_MACHINE, L"SOFTWARE\\WOW6432Node\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\WeGame", 0, KEY_READ, &hKey) != ERROR_SUCCESS) {
+	if (RegOpenKeyExW(first, reg, 0, KEY_READ, &hKey) != ERROR_SUCCESS) {
+		return "";
+	}
+
+	wchar_t wgPath[MAX_PATH];
+	DWORD bufferSize = sizeof(wgPath);
+	// 3. 保持宽字符版本一致性
+	if (RegQueryValueExW(hKey, name, NULL, NULL, (LPBYTE)wgPath, &bufferSize) != ERROR_SUCCESS) {
+		RegCloseKey(hKey);
+		return "";
+	}
+
+	RegCloseKey(hKey);
+
+	std::string utf8Path = WStringToGBK(wgPath);
+	LOG_IMMEDIATE("Wegame路径: " + utf8Path);
+	return utf8Path;
+
+}
+
+
+bool WGRefresh(const std::wstring& exePath, const std::wstring& parameters) {
+	STARTUPINFOW si = { sizeof(si) };
+	PROCESS_INFORMATION pi;
+
+	// 构造完整命令行（注意：第一个参数必须是 exe 路径）
+
+	std::wstring cmdLine = L"\"" + exePath + L"\" " + parameters;
+	std::vector<wchar_t> cmdLineBuf(cmdLine.begin(), cmdLine.end());
+	cmdLineBuf.push_back(L'\0');  // 确保以 NULL 结尾
+	if (!CreateProcessW(
+		exePath.c_str(),      // 应用程序路径
+		cmdLineBuf.data(),       // 命令行参数
+		nullptr,             // 进程安全属性
+		nullptr,             // 线程安全属性
+		FALSE,               // 不继承句柄
+		0,                  // 无特殊标志
+		nullptr,             // 使用父进程环境变量
+		nullptr,             // 使用父进程工作目录
+		&si,                 // 启动信息
+		&pi                 // 进程信息
+	)) {
+		std::cerr << "CreateProcess failed (" << GetLastError() << ")\n";
+		return false;
+	}
+
+	// 关闭句柄（避免资源泄漏）
+	CloseHandle(pi.hProcess);
+	CloseHandle(pi.hThread);
+	return true;
+}
+
+
+
 std::string FindGamePath(const std::string& relativePath) {
 	std::string steamPath = GetSteamInstallPath();
 	if (steamPath.empty()) {

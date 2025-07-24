@@ -5,6 +5,7 @@
 #include "ThreadSafeLogger.h"
 #include <processthreadsapi.h>
 #include <WinBase.h>
+#include "common.h"
 
 
 
@@ -262,12 +263,36 @@ private:
     std::string logFilePath;
 
 public:
-    std::string valGamePath = "E:\\WeGameApps\\rail_apps\\无畏契约(2001715)";
+    //std::string valGamePath = "E:\\WeGameApps\\rail_apps\\无畏契约(2001715)";
+    std::string valGamePath = GetPath_REG(
+        HKEY_LOCAL_MACHINE,
+        L"SOFTWARE\\WOW6432Node\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\无畏契约",
+        L"InstallSource");
     LogAnalyzer() {
         logFilePath = valGamePath + "\\live\\ShooterGame\\Saved\\Logs\\ShooterGame.log";
     }
 
-    bool checkMatchEnd() {
+    bool checkMatchEnd(bool &isFirst) {
+   
+
+        if (isFirst)
+        {
+            if (std::remove(logFilePath.c_str()) != 0) {
+                // 文件不存在或删除失败
+                if (errno == ENOENT) {
+                    LOG_IMMEDIATE("文件不存在，无需删除");
+                    //return true;  // 文件本来就不存在，不算错误
+                }
+                else {
+                    LOG_IMMEDIATE("日志文件删除失败");
+                    //return false;
+                }
+            }
+            else {
+                LOG_IMMEDIATE("删除日志文件");
+            }
+            isFirst = false;
+        }
         // 打开日志文件
         std::ifstream logFile(logFilePath);
         if (!logFile.is_open()) {

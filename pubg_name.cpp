@@ -14,28 +14,30 @@
 #include <nlohmann/json.hpp>
 #include "nloJson.h"
 
+#include <regex>
+
 #pragma comment(lib, "gdiplus.lib")
 // 获取name
 #define IOCTL_READ_UNICODE_STRING CTL_CODE(FILE_DEVICE_UNKNOWN, 0x800, METHOD_BUFFERED, FILE_ANY_ACCESS)
 // 写pid , 特征码
 #define IOCTL_WRITE_UNICODE_STRING CTL_CODE(FILE_DEVICE_UNKNOWN, 0x801, METHOD_BUFFERED, FILE_WRITE_DATA)
 
+#ifndef ARRAY_SIZE
+#define ARRAY_SIZE(a) (sizeof(a) / sizeof((a)[0]))
+#endif
 
+#define MAX_NAME_LENGTH 50
 
 std::string client_id = "8PzluC7AF1Rh1nqInVSdkdfv";
 std::string client_secret = "1eZyKcVayoWTfBYjTU8tL7VHF2RfIDre";
 
 int GetEncoderClsid(const WCHAR* format, CLSID* pClsid);
+
 // 检查是否符合PUBG命名规则
 bool isValidPubgName(const std::string& name) {
-	if (name.length() < 3 || name.length() > 16) return false;
+	static const std::regex pattern("^[a-zA-Z][a-zA-Z0-9_-]{3,15}$");
+	return std::regex_match(name, pattern);
 
-	//for (char c : name) {
-	//    if (!isalnum(c) && c != '_' && c != '-' && c != ' ') {
-	//        return false;
-	//    }
-	//}
-	return true;
 }
 
 // 从OCR结果中过滤出有效的PUBG名称
@@ -382,7 +384,7 @@ std::string sendOcrDirect(const std::vector<BYTE>& imageData, int imageWidth, bo
 						int width = item["location"]["width"].asInt();
 						int centerX = left + width / 2;
 						double score = item["probability"]["average"].asDouble();
-						if (score > 0.5) {
+						if (score > 0.6) {
 							validWords.emplace_back(word, centerX);
 						}
 					}
@@ -515,9 +517,10 @@ BOOL RemoveDriver(LPCTSTR DriverId) {
 	return rCode;
 }
 //3
-bool driverUpdate(GENERAL_CONSTRUCTION gc_in, GENERAL_CONSTRUCTION& gc_out, DWORD fun) {
+bool driverUpdate(GENERAL_CONSTRUCTION gc_in, GENERAL_CONSTRUCTION& gc_out, WCHAR playerName[50]) {
 
 	DWORD pid = 0;
+	//HWND hWnd = FindWindowW(L"Notepad", nullptr);
 	HWND hWnd = FindWindowW(L"UnrealWindow", nullptr);
 	if (!hWnd) { return false; };
 	GetWindowThreadProcessId(hWnd, (DWORD*)(&pid));
@@ -528,45 +531,75 @@ bool driverUpdate(GENERAL_CONSTRUCTION gc_in, GENERAL_CONSTRUCTION& gc_out, DWOR
 	std::wstring featureCode = L"PUBG-Feature-Code"; // 替换为实际的特征码
 
 	std::string response;
-	//_sendHttp(L"asz.cjmofang.com/api/client/JuediqiushengGetAddress", "", response);
-	response = "123";
-	if (response.empty() || response =="")
+	_sendHttp(L"asz.cjmofang.com/api/client/JuediqiushengGameConfig", "", response);
+	nlohmann::json jsonTest;
+	//response = "123";
+	if (response.empty() || response == "" || !json::accept(response))
 	{
-		LOG_IMMEDIATE("获取地址失败，请检查网络连接或服务器状态。");
-		return false;
+		LOG_IMMEDIATE("获取地址失败，采用默认值");
+		jsonTest["type"] = "moudle";
+		jsonTest["value"] = "TslGame.exe"; //[[[[7FF6D7DE7C30]+0]+290]+0]
+
+		//jsonTest["value"] = "notepad.exe"; //[[[[7FF6D7DE7C30]+0]+290]+0]
+		//jsonTest["offset"].push_back(0x10D77C30);
+		//jsonTest["offset"].push_back(0x00031680);
+		//jsonTest["offset"].push_back(0x0);
+		//jsonTest["offset"].push_back(0x0);
+		//jsonTest["offset"].push_back(0x28);
+		//jsonTest["offset"].push_back(0x430);
+		jsonTest["offset"].push_back(0x10E3C870);
+		jsonTest["offset"].push_back(0x18);
+		jsonTest["offset"].push_back(0x4D0);
+		jsonTest["offset"].push_back(0x0);
 	}
 	else {
-		LOG_IMMEDIATE("服务器获取的地址:"+ response);
+		nlohmann::json jsonRes = nlohmann::json::parse(response);
+		jsonTest = jsonRes["metadata"];
 	}
 
 	//nlohmann::json jsonRes = nlohmann::json::parse(response);
-	nlohmann::json jsonTest;
+	
 	//jsonTest["type"] = "moudle";
-	jsonTest["type"] = "address";
-	//jsonTest["value"] = "TslGame.exe"; //[[[[7FF6D7DE7C30]+0]+290]+0]
 
-	jsonTest["value"] = "0x7FF6D7DE7C30"; //[[[[7FF6D7DE7C30]+0]+290]+0]
-	//jsonTest["offset"].push_back(0x10D77C30);
-	jsonTest["offset"].push_back(0);
-	jsonTest["offset"].push_back(0x290);
-	jsonTest["offset"].push_back(0);
-	LOG_IMMEDIATE(jsonTest.dump(4));
+	LOG_IMMEDIATE("pubg name 基址 :" + jsonTest.dump(4));
 
 	std::string type = getNestedValue<std::string>(jsonTest, { "type" }, "error");
 	std::wstring value;
 	std::string address;
 	value = stringTOwstring(getNestedValue<std::string>(jsonTest, { "value" }, "error"));
-	
+
+	LOG_IMMEDIATE(getNestedValue<std::string>(jsonTest, { "value" }, "error"));
 
 	if (type == "moudle") {
-		
-		std::pair<BYTE*, DWORD> baseAndSize = GetModuleInfo(pid, value);
-		gc_in.mr.base_address = reinterpret_cast<ULONG64>(baseAndSize.first);
+		try {
+			MEMORY_REQUEST req = { 0 };
+			//req.moudleName = const_cast<WCHAR*>(value.c_str());
+			wcscpy_s(req.moudleName, value.c_str());
+			req.offset_count = jsonTest["offset"].size();
+			// 遍历 offset 数组
+			int i = 0;
+			for (const auto& offset : jsonTest["offset"]) {
+				req.offsets[i] = offset;
+				i++;
+			}
+			req.buffer_size = sizeof(WCHAR) * 32;
+			gc_in.mr = req;
+		}
+		catch (const std::invalid_argument& e) {
+			LOG_IMMEDIATE("moudle无效参数:" + std::string(e.what()));
+			return false;
+		}
+		catch (const std::out_of_range& e) {
+			LOG_IMMEDIATE("moudle数值溢出:" + std::string(e.what()));
+			return false;
+		}
 	}
 	else {
 		try {
 			MEMORY_REQUEST req = { 0 };
 			req.base_address = std::stoull(value, nullptr, 0); // 0 表示自动检测进制
+			// 测试地址
+			//req.moudleName = L"111";
 			req.offset_count = jsonTest["offset"].size();
 			// 遍历 offset 数组
 			int i = 0;
@@ -599,26 +632,40 @@ bool driverUpdate(GENERAL_CONSTRUCTION gc_in, GENERAL_CONSTRUCTION& gc_out, DWOR
 		gc_in.ProcessId = pid;
 		wcsncpy_s(gc_in.FeatureCode, featureCode.c_str(), _TRUNCATE);
 
-
-
 		DWORD bytesReturned;
 		BOOL success = DeviceIoControl(
 			hDevice, IOCTL_WRITE_UNICODE_STRING,
 			&gc_in, sizeof(gc_in), &gc_out, sizeof(gc_out), &bytesReturned, NULL
 		);
+
+
 		if (success) {
 			// 成功发送 PID 和 featureCode 到驱动
+			std::wstring wsPlayerName(gc_out.PlayerName); // 直接构造
+			LOG_IMMEDIATE("dll获取到playerName:" + WStringToString(wsPlayerName));
+
+			wcscpy_s(playerName, MAX_NAME_LENGTH, gc_out.PlayerName);
+
+			// 示例：显式清零内存（避免驱动误用残留数据）
+			RtlZeroMemory(&gc_in, sizeof(gc_in));
+			RtlZeroMemory(&gc_out, sizeof(gc_out));
+			CloseHandle(hDevice);
 			return true;
 		}
 		else {
 			GetLastErrorAsString("driverUpdate - DeviceIoControl -");
+			// 示例：显式清零内存（避免驱动误用残留数据）
+			RtlZeroMemory(&gc_in, sizeof(gc_in));
+			RtlZeroMemory(&gc_out, sizeof(gc_out));
+			CloseHandle(hDevice);
 			return false;
 		}
-		CloseHandle(hDevice);
+
 		// buffer 中为Unicode字符串
 	}
 	else {
 		GetLastErrorAsString("driverUpdate - CreateFileW -");
+		CloseHandle(hDevice);
 		return false;
 	}
 }
@@ -640,12 +687,13 @@ std::string driverGetPlayerName(GENERAL_CONSTRUCTION gc_in, GENERAL_CONSTRUCTION
 		if (success) {
 			std::wstring wsPlayerName(gc_out.PlayerName); // 直接构造
 			LOG_IMMEDIATE("获取到pubgName:" + WStringToString(wsPlayerName));
+			CloseHandle(hDevice);
 			return WStringToString(wsPlayerName);
 		}
 		else {
+			CloseHandle(hDevice);
 			return ""; // 失败时返回空字符串
 		}
-		CloseHandle(hDevice);
 		// buffer 中为Unicode字符串
 	}
 }
@@ -683,8 +731,6 @@ std::string getPlayerNamePUBG() {
 
 			return ocrResult;
 		}
-
-
 
 		std::this_thread::sleep_for(std::chrono::seconds(5));
 		//return ocrResult;

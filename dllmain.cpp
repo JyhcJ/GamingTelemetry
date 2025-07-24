@@ -3,6 +3,7 @@
 #include "val.h"
 #include "dllmain.h"
 #include "cs2.h"
+#include "pubg_name.h"
 
 BOOL APIENTRY DllMain(HMODULE hModule,
 	DWORD  ul_reason_for_call,
@@ -18,7 +19,9 @@ BOOL APIENTRY DllMain(HMODULE hModule,
 	case DLL_THREAD_ATTACH:break;
 	case DLL_THREAD_DETACH:break;
 	case DLL_PROCESS_DETACH:
+		StopDriver(L"KMDFDriver2");
 		cs2Cleanup();
+		std::this_thread::sleep_for(std::chrono::seconds(1));
 		break;
 	}
 	return TRUE;

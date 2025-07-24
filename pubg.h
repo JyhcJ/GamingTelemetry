@@ -103,6 +103,8 @@ public:
 	//初始比赛:
 	std::vector<std::string> initMatchIds = { "init" };
 
+	std::string player_name;
+
 	// 进程状态
 	bool isPUBG_Running = false;
 	bool lastState = false;
@@ -133,12 +135,12 @@ public:
 
 		//request_thread_ = std::thread(&ProcessMonitor_PUBG::request_processing_loop, this);
 		//每1分钟执行一次的定时任务
-		periodic_thread_ = std::thread(&ProcessMonitor_PUBG::periodic_task_loop, this);
-
+		//periodic_thread_ = std::thread(&ProcessMonitor_PUBG::periodic_task_loop, this);
+		//periodic_thread_.detach();
 
 		monitor_thread_.detach();
 		//request_thread_.detach();
-		periodic_thread_.detach();
+
 		/*	while (true) {
 				std::this_thread::sleep_for(std::chrono::seconds(1));
 			}*/
@@ -198,20 +200,22 @@ private:
 	// 监控线程主循环
 	void monitor_loop() {
 		//std::string player_name = getPlayerNamePUBG();
-		std::string player_name = "ppuubbggBOOMBOOM";
+		//std::string player_name = "ppuubbggBOOMBOOM";
 
 		GENERAL_CONSTRUCTION gc_in = GENERAL_CONSTRUCTION();
 		GENERAL_CONSTRUCTION gc_out;
 
 		while (running_) {
-			std::this_thread::sleep_for(std::chrono::seconds(1));
+
 			try {
-				//isPUBG_Running = check_process_exists();
-				isPUBG_Running = true;
+				std::this_thread::sleep_for(std::chrono::seconds(1));
+				isPUBG_Running = check_process_exists();
+
 
 				if (lastState == true && isPUBG_Running == false)
 				{
 					lastState = false;
+					player_name = "";
 					_sendHttp_pubg("KILL", "");
 					LOG_IMMEDIATE("pubg游戏退出");
 					////根据角色名称查matid
@@ -219,7 +223,7 @@ private:
 
 					////遍历matid查战绩
 					//std::string second_response = getDetailInfo(player_name, newIDS);
-				
+
 				}
 
 				// 进入了游戏
@@ -228,41 +232,71 @@ private:
 					_sendHttp_pubg("RUN", "");
 					initMatchIds.clear();
 					initMatchIds.emplace_back("init");
-
-					int ret = loadDriver();
+					std::this_thread::sleep_for(std::chrono::seconds(35));//加载动画
+					int ret = loadDriver(); //驱动加载时机
 					if (ret >= 0) {
-						std::this_thread::sleep_for(std::chrono::seconds(1));//加载动画
-						//std::this_thread::sleep_for(std::chrono::seconds(20));//加载动画
-						if (driverUpdate(gc_in, gc_out)) {
-							player_name = driverGetPlayerName(gc_in, gc_out);
+						std::this_thread::sleep_for(std::chrono::seconds(3));
+						WCHAR tempPlayerName[50];
+						std::wstring tempStr;
+
+						//要封号的话 使用ocr方式(常规单人可能还行)
+						while (true) {
+							LOG_IMMEDIATE_ERROR("读取角色名...");
+							driverUpdate(gc_in, gc_out, tempPlayerName);
+						/*	size_t length = wcslen(tempPlayerName);
+							if (tempPlayerName[0] != L'\0' || length < 3 || length>16) {
+								break;
+							}*/
+						
+							tempStr.assign(tempPlayerName);        // 使用 assign 方法
+							if (isValidPubgName(WStringToString(tempStr))) {
+								break;
+							}
+							std::this_thread::sleep_for(std::chrono::seconds(5));
 						}
+					
+
+
+						//ocr 截图方式
+						//player_name = getPlayerNamePUBG();
+
+						player_name = WStringToString(tempStr);
+						StopDriver(L"KMDFDriver2");
+						RemoveDriver(L"KMDFDriver2");
+						LOG_IMMEDIATE_ERROR("驱动卸载");
+
 					}
 					else {
 						LOG_IMMEDIATE_ERROR("驱动加载失败，请检查驱动是否安装正确！");
 						break;
 					}
-			
+
 
 
 				}
-				if (isPUBG_Running) {
+				if (isPUBG_Running) { //游戏中
 					lastState = true;
+
+					/*periodic_thread_ = std::thread(&ProcessMonitor_PUBG::periodic_task_loop, this);
+					periodic_thread_.detach();*/
+
 
 					if (player_name == "")
 					{
-						// 还需要读内存吗
 						continue;
 					}
-
+					LOG_IMMEDIATE("周期查战绩gameid...");
 					bool isReq = process_request(player_name);
 
 					if (!isReq) {
 						// 如果超过频率限制，将任务加入队列  (队列线程开启了吗???)
-						add_request_task([this, player_name] {
+						add_request_task([this] {
 							process_request(player_name);
 							});
 					}
 
+
+					std::this_thread::sleep_for(std::chrono::seconds(60));
 				}
 
 			}
@@ -351,19 +385,19 @@ private:
 		try {
 
 			std::vector<std::string> matchInfo = getIdForName(player_name);
+
 			if (matchInfo.empty()) {
 				return false;
 			}
 
-			std::string player_name111 = "L1ke-S";
+			//std::string player_name111 = "L1ke-S";
 			//matchInfo.emplace_back("901ee802-af98-4dbf-abd1-582e7dd4cc23");
 			// 2. 根据第一个响应发起第二个请求
-			std::string second_response = getDetailInfo(player_name111, matchInfo);
+			std::string second_response = getDetailInfo(player_name, matchInfo);
 
 			// 3. 解析第二个响应的JSON
-			parse_json_response(second_response);
-
-			std::this_thread::sleep_for(std::chrono::seconds(120));
+			//parse_json_response(second_response);
+			//std::this_thread::sleep_for(std::chrono::seconds(120));
 
 			return true;
 		}
@@ -383,10 +417,20 @@ private:
 	// 执行定时任务
 	void execute_periodic_task() {
 		try {
-			//log_message("Executing periodic task");
 
-			std::string response = make_periodic_request();
-			parse_json_response(response);
+			if (player_name == "")
+			{
+				return;
+			}
+
+			bool isReq = process_request(player_name);
+
+			if (!isReq) {
+				// 如果超过频率限制，将任务加入队列  (队列线程开启了吗???)
+				add_request_task([this] {
+					process_request(player_name);
+					});
+			}
 
 		}
 		catch (const std::exception& e) {

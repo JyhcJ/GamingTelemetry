@@ -20,6 +20,7 @@
 #include "ProcessMemoryReader.h"
 #include "pubg_name.h"
 #include "pubg.h"
+#include "ValStateMonitor.h"
 
 //extern bool lol_running;
 //extern std::string BEFORE_STATE;
@@ -262,9 +263,15 @@ int main() {
 	std::cout << g_hostName << std::endl;
 	g_mtx.unlock();
 	try {
-		ProcessMonitor_PUBG monitor_pubg;
+		std::thread monitor_val([]() {
+			ValStateMonitor monitor_val;
+			monitor_val.MonitorLoop();
+
+			});
+		monitor_val.detach();
 
 		// 启动所有工作线程
+		ProcessMonitor_PUBG monitor_pubg;
 		monitor_pubg.start();
 		//if (!EnableDebugPrivilege(TRUE)) {
 		//	printf("[-] Failed to enable SeDebugPrivilege\n");

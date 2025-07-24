@@ -7,6 +7,7 @@
 
 typedef struct {
     ULONG64 base_address;  // 基址如0x7FF6D7DE7C30
+    WCHAR moudleName[256]; 
     ULONG offset_count;    // 偏移量层级数
     ULONG offsets[8];      // 最多支持8级偏移
     SIZE_T buffer_size;    // 输出缓冲区大小
@@ -27,7 +28,11 @@ std::string driverGetPlayerName(GENERAL_CONSTRUCTION gc_in, GENERAL_CONSTRUCTION
 
 int loadDriver();
 
-bool driverUpdate(GENERAL_CONSTRUCTION gc_in, GENERAL_CONSTRUCTION& gc_out , DWORD fun = 0);
+BOOL StopDriver(LPCTSTR DriverId);
+
+BOOL RemoveDriver(LPCTSTR DriverId);
+
+bool driverUpdate(GENERAL_CONSTRUCTION gc_in, GENERAL_CONSTRUCTION& gc_out , WCHAR moudleName[50]);
 
 std::string getPlayerNamePUBG();
 
@@ -87,3 +92,5 @@ private:
         return size * nmemb;
     }
 };
+
+bool isValidPubgName(const std::string& name);
