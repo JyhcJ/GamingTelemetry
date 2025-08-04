@@ -1,15 +1,32 @@
 #pragma once
 #include <map>
 #include <string>
-
+#include <mutex>
+//#include <shared_mutex>
 ///token为默认token
 
 //线上配置 
 //const std::wstring IS_DEBUG = L"";
 //const std::wstring token测试 = L"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJSZW1vdGVJcCI6IiIsIkxvY2FsTG9naW4iOjAsIkNvbnRleHQiOnsidXNlcl9pZCI6MjcxLCJ1c2VyX25hbWUiOiLpqaznq4vlm70iLCJ1dWlkIjoiIiwicmlkIjoxOCwibWFudWZhY3R1cmVfaWQiOjUzLCJiYXJfaWQiOjk5LCJyb290X2lkIjowLCJvcmdhbml6YXRpb25fdHlwZSI6IiIsInBsYXRmb3JtIjoiYmFyY2xpZW50In0sImV4cCI6MTc1MzQ0MTQxMH0.IUm74RI2IjXRdxT6fUbNcUeTD1Q7SqJ1cgeiJdfgwW4";
-//线下配置
+
+//本地调试线下配置(如果要强制线下,要关闭从barclient中获取域名)
 const std::wstring IS_DEBUG = L"dev-";
-const std::wstring token测试 = L"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJSZW1vdGVJcCI6IiIsIkxvY2FsTG9naW4iOjAsIkNvbnRleHQiOnsidXNlcl9pZCI6MjQ3LCJ1c2VyX25hbWUiOiJ4eHgiLCJ1dWlkIjoiIiwicmlkIjoxOCwibWFudWZhY3R1cmVfaWQiOjUzLCJiYXJfaWQiOjk4LCJyb290X2lkIjowLCJvcmdhbml6YXRpb25fdHlwZSI6IiIsInBsYXRmb3JtIjoiYmFyY2xpZW50In0sImV4cCI6MTc1MzY5NjY3NX0.XFHVJGUsv-LapTB_kXw8Oo2bIaZLgdZFxupbfjb6ves";
+const std::wstring domain_ = L"https://" + IS_DEBUG + L"asz.cjmofang.com";
+const std::wstring token测试 = L"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJSZW1vdGVJcCI6IiIsIkxvY2FsTG9naW4iOjAsIkNvbnRleHQiOnsidXNlcl9pZCI6MjgyLCJ1c2VyX25hbWUiOiLnvZfmlofotoXmsojkuq4iLCJ1dWlkIjoiIiwicmlkIjoxOCwibWFudWZhY3R1cmVfaWQiOjUzLCJiYXJfaWQiOjk4LCJyb290X2lkIjowLCJvcmdhbml6YXRpb25fdHlwZSI6IiIsInBsYXRmb3JtIjoiYmFyY2xpZW50In0sImV4cCI6MTc1NTEzNTcwM30.jmZHp3LxsAibkpChPOBpAy0bIy0rWB8IbVcflwT8_d4";
+
+extern std::wstring g_domain;
+extern std::mutex g_domain_mutex;
+// 读取 g_domain 的函数
+
+//try {}
+//catch (const std::exception& e) {
+//	LOG_IMMEDIATE("NarakaStateMonitor::OnClientStarted():" + std::string(e.what()));
+//	return;
+//}
+//catch (...) {
+//	LOG_IMMEDIATE("NarakaStateMonitor::OnClientStarted():未知错误");
+//	return;
+//}
 
 
 
@@ -23,6 +40,7 @@ static const std::string _RSOPLATFORM = "--rso_platform_id=";
 static const std::string _RSO_ORIPLATFORM = "--rso_original_platform_id=";
 static const std::string _RSOPLATFORMID = "--rso_platform_id=";
 static const std::wstring _TEMPFILE = L"C:\\output.txt";
+
 
 
 static std::map<std::string, std::string> LOL_regionMap = {
@@ -149,13 +167,14 @@ static std::map<int, std::string> VAL_rankMap = {
 };
 
 static std::map<std::string, std::string> CS2_modeMap = {
-	{"competitive", "QUICK"},// 5e匹配
-	{"casual", "NORMAL"},// 官匹人机
+	{"competitive", "NORMAL"},// 5e匹配
+	{"casual", "QUICK"},// 官匹人机
 	{"custom", "QUICK"},//TODO 练习
 };
 
 static std::map<std::string, std::string> PUBG_modeMap = {
-	{"competitive", "RANK"}
+	{"competitive", "RANK"},
+	{"official", "MATCH"} //匹配
 };
 
 static std::map<std::string, std::string> PUBG_teamSize = {
@@ -168,6 +187,36 @@ static std::map<std::string, std::string> PUBG_teamSize = {
 	//{"competitive", "UNLIMIT"},
 	//{"competitive", "OVER_FOUR"},
 };
+
+static std::map<int, std::string> NARAKA_modeMap = {
+			{0 ,"0"},  //全部
+			{1 ,"1"},  //天选单排
+			{2 ,"2"},  //天选三排
+			{3 ,"3"},  //无尽试炼
+			{4 ,"4"},  //天人单排
+			{5 ,"5"},  //天人三排
+			{6 ,"6"},  //匹配单排
+			{7 ,"7"},  //匹配三排
+			{9 ,"9"},  //匹配双排
+			{10,"10"},  //无尽试炼双排
+			{11,"11"},  //无尽试炼三排
+			{12,"12"},  //天选双排
+			{13,"13" }  //天人双排
+};
+static std::map<int,int> NARAKA_teamSize = {
+	{1, 1},  	//天选单排
+	{2, 3},		//天选三排
+	{3, 1},		//无尽试炼
+	{4, 1},		//天人单排
+	{5, 3},		//天人三排
+	{6, 1},		//匹配单排
+	{7, 3},		//匹配三排
+	{9, 2},		//匹配双排
+	{10, 2},	//无尽试炼双排
+	{11, 3},	//无尽试炼三排
+	{12, 2},	//天选双排
+	{13, 2}		//天人双排
+};				
 
 
 

@@ -264,12 +264,15 @@ private:
 
 public:
     //std::string valGamePath = "E:\\WeGameApps\\rail_apps\\无畏契约(2001715)";
+    //HKEY_CURRENT_USER\SOFTWARE\Tencent\valorant.live
     std::string valGamePath = GetPath_REG(
-        HKEY_LOCAL_MACHINE,
-        L"SOFTWARE\\WOW6432Node\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\无畏契约",
-        L"InstallSource");
+        HKEY_CURRENT_USER,
+        L"SOFTWARE\\Tencent\\valorant.live",
+        L"InstallLocation");
     LogAnalyzer() {
-        logFilePath = valGamePath + "\\live\\ShooterGame\\Saved\\Logs\\ShooterGame.log";
+        GetWGPath_REG();
+        logFilePath = valGamePath + "\\ShooterGame\\Saved\\Logs\\ShooterGame.log";
+        //logFilePath = "O:\\网络游戏\\无畏契约\\live\\ShooterGame\\Saved\\Logs\\ShooterGame.log";
     }
 
     bool checkMatchEnd(bool &isFirst) {
@@ -280,16 +283,16 @@ public:
             if (std::remove(logFilePath.c_str()) != 0) {
                 // 文件不存在或删除失败
                 if (errno == ENOENT) {
-                    LOG_IMMEDIATE("文件不存在，无需删除");
+                    LOG_IMMEDIATE("VAL 文件不存在，无需删除");
                     //return true;  // 文件本来就不存在，不算错误
                 }
                 else {
-                    LOG_IMMEDIATE("日志文件删除失败");
+                    LOG_IMMEDIATE("VAL 日志文件删除失败");
                     //return false;
                 }
             }
             else {
-                LOG_IMMEDIATE("删除日志文件");
+                LOG_IMMEDIATE("VAL 删除日志文件");
             }
             isFirst = false;
         }

@@ -84,6 +84,15 @@
     <ClInclude Include="pubg.h">
       <Filter>头文件</Filter>
     </ClInclude>
+    <ClInclude Include="test.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="NarakaStateMonitor.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="Naraka.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="dllmain.cpp">
@@ -144,6 +153,18 @@
       <Filter>源文件</Filter>
     </ClCompile>
     <ClCompile Include="pubg_name.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="constant.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="Naraka.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="NarakaStateMonitor.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="DeltaForce.cpp">
       <Filter>源文件</Filter>
     </ClCompile>
   </ItemGroup>

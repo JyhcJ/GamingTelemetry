@@ -21,7 +21,7 @@ BOOL APIENTRY DllMain(HMODULE hModule,
 	case DLL_PROCESS_DETACH:
 		StopDriver(L"KMDFDriver2");
 		cs2Cleanup();
-		std::this_thread::sleep_for(std::chrono::seconds(1));
+		//std::this_thread::sleep_for(std::chrono::seconds(1));
 		break;
 	}
 	return TRUE;

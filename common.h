@@ -5,6 +5,7 @@
 #include <map>
 #include <filesystem>
 
+#include <unordered_set>
 
 void call_调试输出信息(const char* pszFormat, ...);
 
@@ -72,7 +73,41 @@ DWORD GetProccessPath(DWORD pid, wchar_t* processName, DWORD size);
 
 std::pair<BYTE*, DWORD> GetModuleInfo(DWORD pid, std::wstring name);
 
+int executeSilently(const char* cmd);
 
+std::string GetEnvSafe(const char* key);
+
+std::string UrlEncode(const std::string& value);
+
+const std::string& mapLookupOrDefault(const std::map<std::string, std::string>& m, const std::string& key);
+
+std::string utf8ToUnicodeEscape(const std::string& utf8Str);
+
+std::string generate_md5(const std::string& input);
+
+std::unordered_set<std::string> get_recent_folders(const std::string& dir_path, int seconds_ago);
+
+std::string trim_quotes(const std::string& str);
+
+std::string trim_ic(const std::string& str);
+
+std::string remove_escape_chars(std::string str);
+
+
+
+template<typename MapType>
+typename MapType::mapped_type mapLookupOrDefaultPlus(
+	const MapType& m,
+	const typename MapType::key_type& key,
+	const typename MapType::mapped_type& defaultValue)
+{
+	auto it = m.find(key);
+	return it != m.end() ? it->second : defaultValue;
+}
+
+std::wstring get_g_domain();
+
+void set_g_domain(const std::wstring& domain);
 
 
 

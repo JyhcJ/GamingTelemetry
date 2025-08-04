@@ -10,7 +10,6 @@
 #include <fstream>
 #include <winsock2.h>
 #include <ws2tcpip.h>
-#include <nlohmann/json.hpp>
 #include "ThreadSafeLogger.h"
 #include "common.h"
 #include "constant.h"
@@ -67,13 +66,13 @@ void _sendHttp_cs2(nlohmann::json jsonBody) {
 		// 3. 发送POST请求
 		g_mtx_header.lock();
 		std::string response = http.SendRequest(
-			L"https://"+ IS_DEBUG +L"asz.cjmofang.com/api/client/CsgoPostGameData",
+			get_g_domain() + L"/api/client/CsgoPostGameData",
 			L"POST",
 			getHeader(),
 			jsonBody.dump()
 		);
 		g_mtx_header.unlock();
-		LOG_IMMEDIATE("Response: " + UTF8ToGBK(response));
+		LOG_IMMEDIATE("cs2:Response: " + UTF8ToGBK(response));
 	}
 	catch (const std::exception& e) {
 		LOG_IMMEDIATE_ERROR("_sendHttp_LOL:::");
@@ -212,7 +211,8 @@ void HandleKillStreak(int streak, json data) {
 		jsonBody["computer_no"] = getComputerName();
 		jsonBody["name"] = "";
 		//jsonBody["game_mode"] = CS2_modeMap[data["map"]["mode"]];
-		jsonBody["game_mode"] = data["map"]["mode"];
+		jsonBody["game_mode"] = mapLookupOrDefault(CS2_modeMap, data["map"]["mode"]);
+		//jsonBody["game_mode"] = data["map"]["mode"];
 		jsonBody["team_size"] = "";
 		jsonBody["user_game_rank"] = "";
 		//jsonBody["data"] = "";
@@ -321,28 +321,28 @@ bool IsNewMatchStarting(const json& current, const json& last) {
 	//bool active = getNestedValue<bool>(data, { "provider", "active" }, false);
 
 	int score = getNestedValue<int>(current, { "map", "round" }, -1);
-	std::string mode = getNestedValue<std::string>(current, {"map", "phase"}, "");
+	std::string mode = getNestedValue<std::string>(current, { "map", "phase" }, "");
 
 	if (score > 0 || mode == "warmup") {
 		return false;
 	}
-	
+
 	// 条件2：满足以下任一情况
 	return true;
-		// 情况A：回合数归零
-		//current["map"]["round"].get<int>() < last["map"]["round"].get<int>() ||
+	// 情况A：回合数归零
+	//current["map"]["round"].get<int>() < last["map"]["round"].get<int>() ||
 
-		//// 情况B：比分重置
-		//(current["map"]["team_ct"]["score"].get<int>() == 0 &&
-		//	current["map"]["team_t"]["score"].get<int>() == 0) ||
+	//// 情况B：比分重置
+	//(current["map"]["team_ct"]["score"].get<int>() == 0 &&
+	//	current["map"]["team_t"]["score"].get<int>() == 0) ||
 
-		//// 情况C：游戏模式改变
-		//current["map"]["mode"] != last["map"]["mode"]
+	//// 情况C：游戏模式改变
+	//current["map"]["mode"] != last["map"]["mode"]
 
-		//||
-		//// 情况D：provider.timestamp跳变（超过10分钟）
-		//(current["provider"]["timestamp"] - last["provider"]["timestamp"] > 600)
-		;
+	//||
+	//// 情况D：provider.timestamp跳变（超过10分钟）
+	//(current["provider"]["timestamp"] - last["provider"]["timestamp"] > 600)
+	;
 	;
 }
 
@@ -401,7 +401,7 @@ void ProcessGSIData(const std::string& rawData) {
 				_sendHttp_cs2("KILL", "");
 				HandleMatchEnd(myLastData, data);
 			}
-		} 
+		}
 
 		// 连杀检测 (仅当玩家活跃时) //官匹练习时 observer_slot 可能不为0
 		if (isInGame && data["player"]["activity"] == "playing" && (data["player"]["steamid"] == data["provider"]["steamid"])) {
@@ -509,10 +509,10 @@ std::string getCS2_location() {
 	std::string fullPath = FindGamePath(relativePath);
 
 	if (!fullPath.empty()) {
-		std::cout << "完整路径: " << fullPath << std::endl;
+		LOG_IMMEDIATE("CSGO路径: " + fullPath);
 	}
 	else {
-		std::cout << "未找到指定路径" << std::endl;
+		LOG_IMMEDIATE("没有找到CSGO路径: ");
 	}
 	return fullPath;
 }
@@ -524,7 +524,7 @@ bool CreateGameStateIntegrationFile(const std::string& directoryPath) {
 	// 检查文件是否已存在
 	std::ifstream testFile(filePath);
 	if (testFile.good()) {
-		std::cout << "文件已存在，不进行任何操作。" << std::endl;
+		LOG_IMMEDIATE("CSGO:创建配置文件: 文件已存在不进行任何操作");
 		testFile.close();
 		return false;
 	}
@@ -537,7 +537,7 @@ bool CreateGameStateIntegrationFile(const std::string& directoryPath) {
 		// 创建并写入文件
 		std::ofstream outFile(filePath);
 		if (!outFile.is_open()) {
-			std::cerr << "无法创建文件: " << filePath << std::endl;
+			LOG_IMMEDIATE("CSGO:无法创建文件");
 			return false;
 		}
 
@@ -581,7 +581,7 @@ bool CreateGameStateIntegrationFile(const std::string& directoryPath) {
 BOOL cs2Monitor() {
 	try {
 		std::string str = getCS2_location();
-		if (str=="" ||str.empty())
+		if (str == "" || str.empty())
 		{
 			LOG_IMMEDIATE_ERROR("没有找到CS2游戏路径.");
 			return FALSE;

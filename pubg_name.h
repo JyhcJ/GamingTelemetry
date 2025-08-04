@@ -67,6 +67,11 @@ public:
             curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, writeCallback);
             curl_easy_setopt(curl, CURLOPT_WRITEDATA, &response);
 
+            // 设置超时选项
+            curl_easy_setopt(curl, CURLOPT_TIMEOUT, 15L);          // 总超时时间15秒
+            curl_easy_setopt(curl, CURLOPT_CONNECTTIMEOUT, 15L);   // 连接超时15秒
+
+
             // 执行请求
             CURLcode res = curl_easy_perform(curl);
 

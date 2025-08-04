@@ -230,7 +230,7 @@ std::string HttpClient::SendRequest(
 	catch (const std::exception& e) {
 		if (hRequest) WinHttpCloseHandle(hRequest);
 		if (hConnect) WinHttpCloseHandle(hConnect);
-		throw e.what();  // 重新抛出异常
+		throw ;  // 重新抛出异常
 	}
 
 	// 清理资源

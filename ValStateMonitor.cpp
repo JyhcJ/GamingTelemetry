@@ -34,6 +34,12 @@ void ValStateMonitor::OnMatchStarted() {
 	LOG_IMMEDIATE("VAL开始\n");
 	_sendHttp_Val("RUN", "");
 
+	//TODO 
+	startTempProxy();
+	// 查战绩
+	getValinfo2send();
+
+
 	try {
 		g_readlog.store(true);
 		std::thread valMatchThread([this]() {

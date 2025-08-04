@@ -42,6 +42,15 @@ CurlUtils::Response CurlUtils::request(
         std::cerr << "Failed to initialize CURL" << std::endl;
         return res;
     }
+    // 启用自动解压（关键！）
+    curl_easy_setopt(curl, CURLOPT_ENCODING, "");
+
+    // 设置超时（可选，避免卡死）
+    curl_easy_setopt(curl, CURLOPT_TIMEOUT, 30L);
+    curl_easy_setopt(curl, CURLOPT_CONNECTTIMEOUT, 10L);
+
+    // 设置 cURL 选项抑制错误
+    curl_easy_setopt(curl, CURLOPT_FAILONERROR, 1L);  // 静默失败
 
     // 设置 URL
     curl_easy_setopt(curl, CURLOPT_URL, url.c_str());

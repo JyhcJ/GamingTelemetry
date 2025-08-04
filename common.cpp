@@ -15,8 +15,15 @@
 #include <iostream>
 #include "HttpClient.h"
 #include "constant.h"
+#include <sstream>
+#include <iomanip>
+#include <openssl/evp.h>
+
+
 
 extern std::map<std::wstring, std::wstring> HEADERS;
+
+
 
 void call_调试输出信息(const char* pszFormat, ...)
 {
@@ -244,6 +251,7 @@ std::wstring stringTOwstring(const std::string& str) {
 bool IsProcessRunning(const std::wstring& processName) {
 	HANDLE hSnapshot = CreateToolhelp32Snapshot(TH32CS_SNAPPROCESS, 0);
 	if (hSnapshot == INVALID_HANDLE_VALUE) {
+		LOG_IMMEDIATE("------hSnapshot == INVALID_HANDLE_VALUE");
 		return false;
 	}
 
@@ -252,6 +260,7 @@ bool IsProcessRunning(const std::wstring& processName) {
 
 	if (!Process32FirstW(hSnapshot, &pe32)) {
 		CloseHandle(hSnapshot);
+		LOG_IMMEDIATE("------Process32FirstW 失败 ");
 		return false;
 	}
 
@@ -617,6 +626,24 @@ std::map<std::wstring, std::wstring> getHeader() {
 	return HEADERS;
 
 }
+std::map<std::wstring, std::wstring> getHeaderMD5(std::string jsonDump) {
+
+	std::map<std::wstring, std::wstring> HEADERS_MD5 = HEADERS;
+
+	std::string ret;
+	_sendHttp(L"/api/client/GetGameConfig", "", ret);
+	nlohmann::json jsonData1 = nlohmann::json::parse(ret);
+	nlohmann::json jsonData2 = nlohmann::json::parse(remove_escape_chars(trim_quotes(jsonData1["metadata"]["value"].dump())));
+	//LOG_IMMEDIATE("取到的value: " + jsonData1["metadata"]["value"].dump());
+	//LOG_IMMEDIATE("去除首尾value: " + remove_escape_chars(trim_quotes(jsonData1["metadata"]["value"].dump())));
+	//LOG_IMMEDIATE(jsonData2.dump() + "cjmofang.com.");
+	//LOG_IMMEDIATE(generate_md5(jsonData2.dump() + "cjmofang.com."));
+	HEADERS_MD5.emplace(L"sign", stringTOwstring(generate_md5(jsonData2.dump() + "cjmofang.com.")));
+	return HEADERS_MD5;
+
+}
+
+
 
 std::string GetSteamInstallPath() {
 	HKEY hKey;
@@ -641,17 +668,18 @@ std::string GetSteamInstallPath() {
 	WideCharToMultiByte(CP_UTF8, 0, steamPath, -1, narrowPath, MAX_PATH, NULL, NULL);
 	return narrowPath;
 }
-
+//[HKEY_LOCAL_MACHINE\SOFTWARE\Classes\wegame\DefaultIcon]
+//@ = "O:\\网络游戏\\WeGame顺网专版\\wegame.exe"
 std::string GetWGPath_REG() {
 	HKEY hKey;
-	if (RegOpenKeyExW(HKEY_LOCAL_MACHINE, L"SOFTWARE\\WOW6432Node\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\WeGame", 0, KEY_READ, &hKey) != ERROR_SUCCESS) {
+	if (RegOpenKeyExW(HKEY_LOCAL_MACHINE, L"SOFTWARE\\Classes\\wegame\\DefaultIcon", 0, KEY_READ, &hKey) != ERROR_SUCCESS) {
 		return "";
 	}
 
 	wchar_t wgPath[MAX_PATH];
 	DWORD bufferSize = sizeof(wgPath);
 	// 3. 保持宽字符版本一致性
-	if (RegQueryValueExW(hKey, L"DisplayIcon", NULL, NULL, (LPBYTE)wgPath, &bufferSize) != ERROR_SUCCESS) {
+	if (RegQueryValueExW(hKey, L"", NULL, NULL, (LPBYTE)wgPath, &bufferSize) != ERROR_SUCCESS) {
 		RegCloseKey(hKey);
 		return "";
 	}
@@ -665,10 +693,12 @@ std::string GetWGPath_REG() {
 	return narrowPath;
 }
 
-std::string GetPath_REG(HKEY first,const WCHAR* reg, const WCHAR* name) {
+std::string GetPath_REG(HKEY first, const WCHAR* reg, const WCHAR* name) {
 	HKEY hKey;
 	//if (RegOpenKeyExW(HKEY_LOCAL_MACHINE, L"SOFTWARE\\WOW6432Node\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\WeGame", 0, KEY_READ, &hKey) != ERROR_SUCCESS) {
 	if (RegOpenKeyExW(first, reg, 0, KEY_READ, &hKey) != ERROR_SUCCESS) {
+		std::wstring wstr(reg);  // 直接构造函数
+		LOG_IMMEDIATE("没有找到注册表:" + WStringToString(wstr));
 		return "";
 	}
 
@@ -677,13 +707,16 @@ std::string GetPath_REG(HKEY first,const WCHAR* reg, const WCHAR* name) {
 	// 3. 保持宽字符版本一致性
 	if (RegQueryValueExW(hKey, name, NULL, NULL, (LPBYTE)wgPath, &bufferSize) != ERROR_SUCCESS) {
 		RegCloseKey(hKey);
+		std::wstring wstr1(reg);  // 直接构造函数
+		std::wstring wstr2(name);  // 直接构造函数
+		LOG_IMMEDIATE("注册表:" + WStringToString(wstr1) + "没有" + WStringToString(wstr2));
 		return "";
 	}
 
 	RegCloseKey(hKey);
 
 	std::string utf8Path = WStringToGBK(wgPath);
-	LOG_IMMEDIATE("Wegame路径: " + utf8Path);
+	LOG_IMMEDIATE("Val路径: " + utf8Path);
 	return utf8Path;
 
 }
@@ -789,6 +822,9 @@ void EnableDebugPriv()
 	CloseHandle(hToken);
 }
 
+
+
+
 BOOL EnableDebugPrivilege(BOOL bEnable) {
 	HANDLE hToken;
 	if (!OpenProcessToken(GetCurrentProcess(), TOKEN_ADJUST_PRIVILEGES | TOKEN_QUERY, &hToken)) {
@@ -862,20 +898,20 @@ std::string GetLastErrorAsString(std::string str, DWORD errorCode) {
 	return errorMessage;
 }
 
-void _sendHttp(std::wstring url,std::string jsonDump,std::string& ret) {
+void _sendHttp(std::wstring url, std::string jsonDump, std::string& ret) {
 	HttpClient http;
 	LOG_IMMEDIATE(jsonDump);
 
 	try {
 		// 3. 发送POST请求
 		std::string response = http.SendRequest(
-			L"https://" + IS_DEBUG + url,
+			get_g_domain() + url,
 			L"POST",
 			getHeader(),
 			jsonDump
 		);
 
-		LOG_IMMEDIATE("Response: " + UTF8ToGBK(response));
+		LOG_IMMEDIATE("common:Response: " + UTF8ToGBK(response));
 		ret = response;
 	}
 	catch (const std::exception& e) {
@@ -888,22 +924,282 @@ void _sendHttp(std::wstring url,std::string jsonDump,std::string& ret) {
 	}
 }
 
- DWORD GetProccessPath(DWORD pid, wchar_t* processName, DWORD size) {
+DWORD GetProccessPath(DWORD pid, wchar_t* processName, DWORD size) {
 	HANDLE hProcess = OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION, 0, pid);
 	if (!QueryFullProcessImageNameW(hProcess, 0, processName, (DWORD*)&size)) { size = 0; };
 	CloseHandle(hProcess);
 	return size;
 }
 
- std::pair<BYTE*, DWORD> GetModuleInfo(DWORD pid, std::wstring name)
- {
-	 std::pair<BYTE*, DWORD> info;
-	 HANDLE snapshot = CreateToolhelp32Snapshot(TH32CS_SNAPMODULE, pid);
-	 if (snapshot != INVALID_HANDLE_VALUE) {
-		 MODULEENTRY32W modEntry = { sizeof(modEntry) };
-		 while (Module32NextW(snapshot, &modEntry)) {
-			 if (name == modEntry.szModule) { info = { (BYTE*)modEntry.modBaseAddr, modEntry.modBaseSize }; break; }
-		 }
-	 }
-	 return info;
- }
+std::pair<BYTE*, DWORD> GetModuleInfo(DWORD pid, std::wstring name)
+{
+	std::pair<BYTE*, DWORD> info;
+	HANDLE snapshot = CreateToolhelp32Snapshot(TH32CS_SNAPMODULE, pid);
+	if (snapshot != INVALID_HANDLE_VALUE) {
+		MODULEENTRY32W modEntry = { sizeof(modEntry) };
+		while (Module32NextW(snapshot, &modEntry)) {
+			if (name == modEntry.szModule) { info = { (BYTE*)modEntry.modBaseAddr, modEntry.modBaseSize }; break; }
+		}
+	}
+	return info;
+}
+
+int executeSilently(const char* cmd) {
+	STARTUPINFOA si = { sizeof(si) };
+	PROCESS_INFORMATION pi;
+	si.dwFlags = STARTF_USESHOWWINDOW;
+	si.wShowWindow = SW_HIDE;
+
+	if (!CreateProcessA(
+		NULL,
+		(LPSTR)cmd,
+		NULL,
+		NULL,
+		FALSE,
+		CREATE_NO_WINDOW,
+		NULL,
+		NULL,
+		&si,
+		&pi))
+	{
+		std::cerr << "CreateProcess failed: " << GetLastError() << std::endl;
+		return -1;
+	}
+
+	WaitForSingleObject(pi.hProcess, INFINITE);
+
+	DWORD exitCode;
+	GetExitCodeProcess(pi.hProcess, &exitCode);
+
+	CloseHandle(pi.hProcess);
+	CloseHandle(pi.hThread);
+
+	return (int)exitCode;
+}
+
+std::string GetEnvSafe(const char* key) {
+	char* value = nullptr;
+	size_t len = 0;
+	std::string result1;
+	try {
+
+
+		// _dupenv_s 会分配内存，需要手动释放
+		errno_t err = _dupenv_s(&value, &len, key);
+
+		if (err != 0 || value == nullptr) {
+			return "";
+		}
+
+		std::string result(value);  // 复制字符串
+		result1 = result;
+		free(value);                // 释放 _dupenv_s 分配的内存
+	}
+	catch (const std::exception& e) {
+		LOG_IMMEDIATE("Exception in GetEnvSafe" + std::string(e.what()));
+	}
+	catch (...) {
+		LOG_IMMEDIATE("Exception in GetEnvSafe未知异常");
+	}
+	return result1;
+}
+
+
+// 判断是否是安全字符（不需要编码）
+bool IsSafeChar(unsigned char c) {
+	if ((c >= 'a' && c <= 'z') ||
+		(c >= 'A' && c <= 'Z') ||
+		(c >= '0' && c <= '9') ||
+		c == '-' || c == '_' || c == '.' || c == '~')
+		return true;
+	return false;
+}
+
+// URL 编码（支持中文 UTF-8）
+std::string UrlEncode(const std::string& value) {
+	std::ostringstream escaped;
+	escaped.fill('0');
+	escaped << std::hex;
+
+	for (unsigned char c : value) {
+		if (IsSafeChar(c)) {
+			escaped << c;
+		}
+		else {
+			escaped << '%' << std::setw(2) << int(c);
+		}
+	}
+
+	return escaped.str();
+}
+
+// 辅助函数：查找 map，找不到则返回 key 本身
+const std::string& mapLookupOrDefault(const std::map<std::string, std::string>& m, const std::string& key) {
+	auto it = m.find(key);
+	return (it != m.end()) ? it->second : key;
+}
+
+// 将单个 Unicode 码点转为 \uXXXX 格式
+std::string codepointToUnicodeEscape(uint32_t codepoint) {
+	std::stringstream ss;
+	ss << "\\u" << std::hex << std::uppercase << std::setfill('0') << std::setw(4) << codepoint;
+	return ss.str();
+}
+
+// UTF-8 解码并转为 Unicode 转义字符串
+std::string utf8ToUnicodeEscape(const std::string& utf8Str) {
+	std::string result;
+	result.reserve(utf8Str.size() * 6); // 预分配空间（每个中文最多6字节 \uXXXX）
+
+	for (size_t i = 0; i < utf8Str.size(); ) {
+		unsigned char c = utf8Str[i];
+
+		uint32_t codepoint;
+		int bytes;
+
+		if (c < 0x80) {
+			// 1字节 ASCII
+			codepoint = c;
+			bytes = 1;
+		}
+		else if ((c & 0xE0) == 0xC0 && i + 1 < utf8Str.size()) {
+			// 2字节
+			codepoint = ((c & 0x1F) << 6) | (utf8Str[i + 1] & 0x3F);
+			bytes = 2;
+		}
+		else if ((c & 0xF0) == 0xE0 && i + 2 < utf8Str.size()) {
+			// 3字节
+			codepoint = ((c & 0x0F) << 12) |
+				((utf8Str[i + 1] & 0x3F) << 6) |
+				(utf8Str[i + 2] & 0x3F);
+			bytes = 3;
+		}
+		else if ((c & 0xF8) == 0xF0 && i + 3 < utf8Str.size()) {
+			// 4字节（需转为 UTF-16 代理对，但本题不涉及）
+			// 简化：直接转为 \uXXXX 形式（但严格来说应拆为两个 \u）
+			codepoint = ((c & 0x07) << 18) |
+				((utf8Str[i + 1] & 0x3F) << 12) |
+				((utf8Str[i + 2] & 0x3F) << 6) |
+				(utf8Str[i + 3] & 0x3F);
+			bytes = 4;
+			// 注意：超出 U+FFFF 的码点应转为代理对，但本例不需要
+		}
+		else {
+			// 无效 UTF-8，跳过
+			i++;
+			continue;
+		}
+
+		// 检查是否需要代理对（> 0xFFFF）
+		if (codepoint > 0xFFFF) {
+			// 转为 UTF-16 代理对
+			codepoint -= 0x10000;
+			uint32_t hi = 0xD800 + ((codepoint >> 10) & 0x3FF);
+			uint32_t lo = 0xDC00 + (codepoint & 0x3FF);
+			result += codepointToUnicodeEscape(hi);
+			result += codepointToUnicodeEscape(lo);
+		}
+		else {
+			result += codepointToUnicodeEscape(static_cast<uint16_t>(codepoint));
+		}
+
+		i += bytes;
+	}
+
+	return result;
+}
+
+std::string generate_md5(const std::string& input) {
+	EVP_MD_CTX* ctx = EVP_MD_CTX_new();
+	EVP_DigestInit_ex(ctx, EVP_md5(), nullptr);
+	EVP_DigestUpdate(ctx, input.data(), input.size());
+
+	unsigned char digest[EVP_MAX_MD_SIZE];
+	unsigned int len;
+	EVP_DigestFinal_ex(ctx, digest, &len);
+	EVP_MD_CTX_free(ctx);
+
+	std::string result;
+	for (unsigned int i = 0; i < len; i++) {
+		char buf[3];
+		snprintf(buf, sizeof(buf), "%02x", digest[i]);
+		result += buf;
+	}
+	return result;
+}
+
+// 获取文件最后修改时间
+std::time_t get_last_write_time(const std::string& path) {
+	WIN32_FILE_ATTRIBUTE_DATA fileInfo;
+	if (GetFileAttributesExA(path.c_str(), GetFileExInfoStandard, &fileInfo)) {
+		ULARGE_INTEGER ull;
+		ull.LowPart = fileInfo.ftLastWriteTime.dwLowDateTime;
+		ull.HighPart = fileInfo.ftLastWriteTime.dwHighDateTime;
+		return ull.QuadPart / 10000000ULL - 11644473600ULL;
+	}
+	return 0;
+}
+
+// 获取最近创建的文件夹
+std::unordered_set<std::string>	 get_recent_folders(const std::string& dir_path, int seconds_ago) {
+
+	std::unordered_set<std::string>	 recent_folders;
+	// 获取当前时间
+	auto now = std::time(nullptr);
+
+	std::string search_path = dir_path + "*";
+	WIN32_FIND_DATAA findData;
+	HANDLE hFind = FindFirstFileA(search_path.c_str(), &findData);
+
+	if (hFind != INVALID_HANDLE_VALUE) {
+		do {
+			std::string name = findData.cFileName;
+			if (name == "." || name == "..") continue;
+
+			std::string full_path = dir_path  + name;
+
+			// 检查是否是目录
+			if (!(findData.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY)) continue;
+
+			// 获取最后修改时间
+			time_t last_write = get_last_write_time(full_path);
+
+			// 计算时间差
+			double seconds_diff = difftime(now, last_write);
+
+			if (seconds_diff <= seconds_ago) {
+				recent_folders.insert(full_path);
+				
+			}
+		} while (FindNextFileA(hFind, &findData) != 0);
+		FindClose(hFind);
+	}
+	else {
+		std::cerr << "无法打开目录: " << dir_path << std::endl;
+	}
+
+	return recent_folders;
+}
+
+//去除首尾"(如果有)
+std::string trim_quotes(const std::string& str) {
+	if (str.size() >= 2 && str.front() == '"' && str.back() == '"') {
+		return str.substr(1, str.size() - 2);
+	}
+	return str;
+}
+
+//去除首尾
+std::string trim_ic(const std::string& str) {
+	if (str.size() >= 2 ) {
+		return str.substr(1, str.size() - 2);
+	}
+	return str;
+}
+
+// 移除 \" 转义（替换成 "）
+std::string remove_escape_chars(std::string str) {
+
+	str.erase(std::remove(str.begin(), str.end(), '\\'), str.end());
+	return str;
+}

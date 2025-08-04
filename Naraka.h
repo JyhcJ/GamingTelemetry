@@ -1,0 +1,451 @@
+#pragma once
+#include <iostream>
+#include <fstream>
+#include <string>
+#include <vector>
+#include <chrono>
+#include <thread>
+#include <memory>
+#include "constant.h"
+#include "nloJson.h"
+#include <regex>
+#include <unordered_set>
+
+// 系统相关头文件
+#ifdef _WIN32
+#include <windows.h>
+#include <tlhelp32.h>
+#endif
+#include "common.h"
+#include "ThreadSafeLogger.h"
+#include "HttpClient.h"
+#include "Naraka.h"
+#include "CurlUtils.h"
+
+
+// 游戏进程监控类
+class GameMonitor {
+public:
+	bool isGameRunning() {
+#ifdef _WIN32
+		HANDLE hSnapshot = CreateToolhelp32Snapshot(TH32CS_SNAPPROCESS, 0);
+		if (hSnapshot == INVALID_HANDLE_VALUE) {
+			return false;
+		}
+
+		PROCESSENTRY32 pe;
+		pe.dwSize = sizeof(PROCESSENTRY32);
+
+		if (!Process32First(hSnapshot, &pe)) {
+			CloseHandle(hSnapshot);
+			return false;
+		}
+
+		do {
+			std::wstring processName(pe.szExeFile);
+			if (processName == L"NarakaBladepoint.exe") {
+				CloseHandle(hSnapshot);
+				return true;
+			}
+		} while (Process32Next(hSnapshot, &pe));
+
+		CloseHandle(hSnapshot);
+		return false;
+#else
+		// Linux/Mac实现
+		FILE* pipe = popen("ps -A | grep NarakaBladepoint", "r");
+		if (!pipe) return false;
+
+		char buffer[128];
+		bool found = false;
+
+		while (!feof(pipe)) {
+			if (fgets(buffer, 128, pipe) != nullptr) {
+				if (strstr(buffer, "NarakaBladepoint")) {
+					found = true;
+					break;
+				}
+			}
+		}
+
+		pclose(pipe);
+		return found;
+#endif
+	}
+};
+
+// 玩家数据管理器
+class PlayerDataManager {
+public:
+	bool readPlayerNameFromFile(const std::string& filePath, std::string& playerName) {
+		std::ifstream file(filePath, std::ios::binary); // 用 binary 避免换行符转换
+		if (!file.is_open()) {
+			std::cerr << "Failed to open player name file: " << filePath << std::endl;
+			return false;
+		}
+
+		std::string line;
+		const std::string key = "player_name,";
+
+		while (std::getline(file, line)) {
+			// 去除可能的 BOM
+			if (line.size() >= 3 &&
+				(unsigned char)line[0] == 0xEF &&
+				(unsigned char)line[1] == 0xBB &&
+				(unsigned char)line[2] == 0xBF) {
+				line.erase(0, 3);
+			}
+
+			// 去除回车符 \r
+			if (!line.empty() && line.back() == '\r') {
+				line.pop_back();
+			}
+			//TODO Try
+			size_t pos = line.find(key);
+			if (pos != std::string::npos) {
+				size_t start = pos + key.length();
+				size_t end = line.find(';', start);
+				if (end == std::string::npos) {
+					end = line.length();
+				}
+				playerName = line.substr(start, end - start);
+
+				return true;
+			}
+		}
+
+		LOG_IMMEDIATE_DEBUG("NARAKA未在文件中找到 player_name");
+		return false;
+	}
+
+	const std::string& getPlayerName() const {
+		return playerName;
+	}
+
+	void setPlayerName(std::string p_name) {
+		playerName = p_name;
+	}
+
+	void setRegion(const std::string& reg) {
+		region = reg;
+	}
+
+	const std::string& getRegion() const {
+		return region;
+	}
+
+	void addToExclusionList(const std::string& matchId) {
+		exclusionList.insert(matchId);
+	}
+
+	bool isExcluded(const std::string& matchId) const {
+		return exclusionList.find(matchId) != exclusionList.end();
+	}
+
+private:
+	std::string playerName;
+	std::string region = "CN"; // 默认区服
+	std::unordered_set<std::string> exclusionList;
+
+};
+
+// 战绩查询主类
+class NarakaStatsTracker {
+public:
+	bool isInit = true;
+	std::unique_ptr<GameMonitor> gameMonitor;
+	std::unique_ptr<PlayerDataManager> playerData;
+	//std::map<std::wstring, std::wstring> m_header = {
+	//	{L":method",L"GET"},
+	//	{L":authority", L"record.uu.163.com"},
+	//	{L":scheme", L"https"},
+	//	{L":path", L"/api/naraka/battles?page=1&page_size=10"},
+	//	{L"sec-ch-ua-platform", L"Windows"},
+	//	{L"user-agent", L"Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/138.0.0.0 Safari/537.36"},
+	//	{L"accept", L"application/json, text/plain, */*"},
+	//	{L"sec-ch-ua", L"\"Not)A;Brand\";v=\"8\", \"Chromium\";v=\"138\", \"Google Chrome\";v=\"138\""},
+	//	{L"sec-ch-ua-mobile", L"?0"},
+	//	{L"sec-fetch-site", L"same-origin"},
+	//	{L"sec-fetch-mode", L"cors"},
+	//	{L"sec-fetch-dest", L"empty"},
+	//	{L"referer", L"https://record.uu.163.com/naraka/"},
+	//	{L"accept-encoding", L"gzip, deflate, br, zstd"},
+	//	{L"accept-language", L"zh-CN,zh;q=0.9"},
+	//	{L"cookie", L"session=2gYhJUz6USFQV5Lx3iG7q1XktvCHWmzMJT_QepHr"},
+	//	{L"priority", L"u=1, i"}
+	//};
+
+	std::map<std::string, std::string> m_headers = {
+		  {"sec-ch-ua-platform", "\"Windows\""},
+		  {"user-agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/138.0.0.0 Safari/537.36"},
+		  {"accept", "application/json, text/plain, */*"},
+		  {"sec-ch-ua", "\"Not)A;Brand\";v=\"8\", \"Chromium\";v=\"138\", \"Google Chrome\";v=\"138\""},
+		  {"sec-ch-ua-mobile", "?0"},
+		  {"sec-fetch-site", "same-origin"},
+		  {"sec-fetch-mode", "cors"},
+		  {"sec-fetch-dest", "empty"},
+		  {"referer", "https://record.uu.163.com/naraka/"},
+		  {"accept-encoding", "gzip, deflate, br, zstd"},
+		  {"accept-language", "zh-CN,zh;q=0.9"},
+		  {"cookie", "session=2gYhJUz6USFQV5Lx3iG7q1XktvCHWmzMJT_QepHr"},
+		  {"priority", "u=1, i"}
+	};
+	NarakaStatsTracker()
+		:gameMonitor(std::make_unique<GameMonitor>()),
+		playerData(std::make_unique<PlayerDataManager>()) {
+	}
+
+	bool initialize(const std::string& playerNameFile) {
+		// 1. 读取玩家名称
+
+		std::string playerName;
+		if (!playerData->readPlayerNameFromFile(playerNameFile, playerName)) {
+			std::cerr << "Failed to read player name from file." << std::endl;
+			return false;
+		}
+
+		//// 3. 获取初始战绩列表
+		//if (!checkNew()) {
+		//	std::cerr << "Failed to fetch initial stats." << std::endl;
+		//	return false;
+		//}
+
+		return true;
+	}
+
+	void run() {
+		while (true) {
+			// 检查游戏是否在运行
+			if (!gameMonitor->isGameRunning()) {
+				std::cout << "Game is not running. Waiting..." << std::endl;
+				std::this_thread::sleep_for(std::chrono::seconds(30));
+				continue;
+			}
+
+			// 每分钟查询一次
+			std::this_thread::sleep_for(std::chrono::minutes(1));
+
+			//// 查询新战绩
+			//if (!fetchNewStats()) {
+			//	std::cerr << "Failed to fetch new stats." << std::endl;
+			//}
+		}
+	}
+
+	bool checkNew(std::string playerName, bool isInit) {
+		// 获取初始战绩列表并填充排除列表
+		CurlUtils::setVerifySSL(false);
+		std::string str;
+		std::string room_id;
+		try {
+			nlohmann::json response;
+
+			std::string url = "https://record.uu.163.com/api/login/status";
+			auto response1 = CurlUtils::get(url, m_headers);
+			//失败可能返回是空  不确定
+			if (response1.statusCode == 200) {
+				//std::cout << "Success! Body length: " << response1.body.size() << std::endl;
+				//std::cout << response1.body << std::endl;
+
+			}
+			else {
+				std::cerr << "Request failed with status: " << response1.statusCode << std::endl;
+			}
+
+			std::string encoded = UrlEncode(playerName);
+			url = "https://record.uu.163.com/api/naraka/auth/" + encoded + "/163";
+			response1 = CurlUtils::get(url, m_headers);
+			if (response1.statusCode == 200) {
+				//std::cout << "Success! Body length: " << response1.body.size() << std::endl;
+				//std::cout << response1.body << std::endl;
+
+			}
+
+			url = "https://record.uu.163.com/api/naraka/battles?page=1&page_size=2";
+			response1 = CurlUtils::get(url, m_headers);
+			if (response1.statusCode == 200) {
+				//std::cout << "Success! Body length: " << response1.body.size() << std::endl;
+				//std::cout << response1.body << std::endl;
+				response = nlohmann::json::parse(response1.body);
+
+				std::vector<PathItem> path = {
+				PathItem::makeKey("data"),
+				PathItem::makeIndex(0),
+				PathItem::makeKey("room_id")
+				};
+				room_id = getNestedValuePlus<std::string>(response, path, "error");
+		
+				if (isInit) {
+					//time_t currentTimestamp = time(nullptr);
+					//std::vector<PathItem> path_begin_time = {
+					//PathItem::makeKey("data"),
+					//PathItem::makeIndex(0),
+					//PathItem::makeKey("begin_time")
+					//};
+					//time_t begin_time = getNestedValuePlus<time_t>(response, path_begin_time, currentTimestamp);
+					//// 计算差值（秒）
+					//long long secondsElapsed = static_cast<long long>(currentTimestamp - begin_time);
+					//LOG_IMMEDIATE("Naraka:It has been " + std::to_string(secondsElapsed) + " seconds since the last game.");
+				 //   if (secondsElapsed > 60 * 25) {}
+					playerData->addToExclusionList(room_id);
+					return false;
+				}
+				if (!playerData->isExcluded(room_id))
+				{
+					LOG_IMMEDIATE("永劫无间新的对局:" + room_id);
+					playerData->addToExclusionList(room_id);
+				}
+				else {
+					return false;
+				}
+
+
+			}
+			else {
+				std::cerr << "Request failed with status: " << response1.statusCode << std::endl;
+			}
+
+			url = "https://record.uu.163.com/api/naraka/battle/detail/" + room_id;
+			response1 = CurlUtils::get(url, m_headers);
+			if (response1.statusCode == 200) {
+				//std::cout << "Success! Body length: " << response1.body.size() << std::endl;
+				//std::cout << response1.body << std::endl;
+				nlohmann::json obj0 = nlohmann::json::parse(response1.body);
+			    obj0 = obj0["data"];
+				nlohmann::json jsonBody;
+
+				jsonBody["type"] = "";
+				jsonBody["game_uuid"] = room_id;
+				jsonBody["event_id"] = getNestedValue<std::string>(obj0, { "_id" }, "error");
+				jsonBody["computer_no"] = getComputerName();
+				jsonBody["name"] = "";
+
+				jsonBody["game_mode"] = mapLookupOrDefaultPlus(
+					NARAKA_modeMap,
+					obj0["game_mode"].get<int>(),
+					std::to_string(obj0["game_mode"].get<int>()) 
+				);
+
+				jsonBody["team_size"] = mapLookupOrDefaultPlus(
+					NARAKA_teamSize,
+					obj0["game_mode"].get<int>(),
+					obj0["game_mode"].get<int>()
+				);
+
+				nlohmann::json member;
+				member["role"] = "self";
+				member["id"] = utf8ToUnicodeEscape(playerName);
+				jsonBody["data"]["member"].push_back(member);
+				for (const auto teammate : obj0["teammates"]) {
+					member["role"] = "other";
+					member["id"] = teammate["role_name"];
+					jsonBody["data"]["member"].push_back(member);
+				}
+				jsonBody["remark"] = "";
+
+
+				//std::string response;
+				//_sendHttp(L"/api/client/", "", response);
+
+				LOG_IMMEDIATE(jsonBody.dump(4, ' ', true));
+
+			
+			}
+			else {
+				std::cerr << "Request failed with status: " << response1.statusCode << std::endl;
+			}
+		}
+		catch (std::exception& e) {
+			std::cout << "Error: " << e.what() << std::endl;
+		}
+
+
+
+
+		//LOG_IMMEDIATE_WARNING("Naraka 网易 登录状态: " + UTF8ToGBK( str));
+
+
+
+		//源文件必须保存为 UTF-8 编码
+	/*	std::string encoded = UrlEncode(playerName);
+		std::wstring check = stringTOwstring(encoded);
+		str = http.SendRequest(
+			L"https://record.uu.163.com/api/naraka/auth/" + check + L"/163",
+			L"GET",
+			m_headers,
+			""
+		);*/
+
+
+
+
+		//nlohmann::json response = nlohmann::json::parse(str);
+
+		//std::string msg = getNestedValue<std::string>(response, { "msg" }, "error");
+
+		//if (msg != "ok")
+		//{
+		//	LOG_IMMEDIATE_WARNING("获取战绩失败: " + response.dump());
+		//	return false;
+		//}
+
+
+		//for (const auto& obj : response["data"]) {
+		//	std::string room_id = getNestedValue<std::string>(obj, { "room_id" }, "error");
+		//	if (isInit) {
+		//		playerData->addToExclusionList(room_id);
+		//		break;
+		//	}
+		//	else if (playerData->isExcluded(room_id)) {
+		//		return false;
+		//	}
+		//	else {
+		//		LOG_IMMEDIATE("新的对局产生.上报信息");
+
+
+		//		return true;
+		//	}
+
+
+		//	break;
+		//}
+
+
+
+		return true;
+	}
+private:
+
+	//bool fetchNewStats() {
+	//	// 获取新战绩
+	//	std::string response = chromeController->fillAndQuery(
+	//		playerData->getPlayerName(),
+	//		playerData->getRegion()
+	//	);
+
+	//	// 解析响应并检查新战绩
+	//	std::regex matchIdRegex("\"matchId\":\"([^\"]+)\"");
+	//	std::smatch matches;
+
+	//	bool newStatsFound = false;
+	//	std::string::const_iterator searchStart(response.cbegin());
+	//	while (std::regex_search(searchStart, response.cend(), matches, matchIdRegex)) {
+	//		if (matches.size() > 1) {
+	//			std::string matchId = matches[1].str();
+	//			if (!playerData->isExcluded(matchId)) {
+	//				std::cout << "New match found: " << matchId << std::endl;
+	//				newStatsFound = true;
+	//				// 处理新战绩...
+
+	//				// 添加到排除列表
+	//				playerData->addToExclusionList(matchId);
+	//			}
+	//		}
+	//		searchStart = matches.suffix().first;
+	//	}
+
+	//	return !response.empty();
+	//}
+
+
+};

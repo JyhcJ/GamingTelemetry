@@ -36,6 +36,10 @@
 #pragma comment(lib, "crypt32.lib")
 #pragma comment(lib, "comsuppw.lib")
 
+
+extern bool is_lol_running;
+extern std::mutex g_mtx;
+
 class Game_Before {
 private:
 	HttpClient http;

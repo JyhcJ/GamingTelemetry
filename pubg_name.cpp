@@ -531,7 +531,7 @@ bool driverUpdate(GENERAL_CONSTRUCTION gc_in, GENERAL_CONSTRUCTION& gc_out, WCHA
 	std::wstring featureCode = L"PUBG-Feature-Code"; // 替换为实际的特征码
 
 	std::string response;
-	_sendHttp(L"asz.cjmofang.com/api/client/JuediqiushengGameConfig", "", response);
+	_sendHttp(L"/api/client/JuediqiushengGameConfig", "", response);
 	nlohmann::json jsonTest;
 	//response = "123";
 	if (response.empty() || response == "" || !json::accept(response))

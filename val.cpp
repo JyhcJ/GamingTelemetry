@@ -30,17 +30,23 @@ extern std::string g_hostName;
 void _sendHttp_Val(nlohmann::json jsonBody) {
 	HttpClient http;
 	LOG_IMMEDIATE(jsonBody.dump());
+	// TODO生成 MD5
+	//std::wstring md5_hash = stringTOwstring(generate_md5(jsonBody.dump() + "ABC"));
+	//LOG_IMMEDIATE((jsonBody.dump() + "ABC"));
+	//LOG_IMMEDIATE(generate_md5(jsonBody.dump() + "ABC"));
+	//std::map<std::wstring, std::wstring> header = getHeader();
+	//header.emplace(L"md5", md5_hash);
 	try {
 		// 3. 发送POST请求
 		//g_mtx_header.lock();
 		std::string response = http.SendRequest(
-			L"https://" + IS_DEBUG + L"asz.cjmofang.com/api/client/WuweiqiyuePostGameData",
+			get_g_domain() + L"/api/client/WuweiqiyuePostGameData",
 			L"POST",
 			getHeader(),
 			jsonBody.dump()
 		);
 		//g_mtx_header.unlock();
-		LOG_IMMEDIATE("_Response: " + UTF8ToGBK(response));
+		LOG_IMMEDIATE("val:Response: " + UTF8ToGBK(response));
 	}
 	catch (const std::exception& e) {
 		LOG_IMMEDIATE_ERROR("_sendHttp_Val:::");
@@ -77,10 +83,10 @@ int startTempProxy() {
 
 			// 读取UTF-8文件内容
 		try {
-
-			const char* exePath = "dumpMain.exe";
+			const char* exePath = "\"C:\\Program Files\\Python313\\pythonw.exe\" dumpMain.pyw";
 			std::thread threeToRefresh([]() {
 				std::wstring temp = stringTOwstring(GetWGPath_REG());
+				//std::wstring temp = L"O:\\网络游戏\\WeGame顺网专版\\wegame.exe";
 				std::this_thread::sleep_for(std::chrono::seconds(3));
 				WGRefresh(temp, L"/StartFor=2001918");
 				std::this_thread::sleep_for(std::chrono::seconds(2));
@@ -88,7 +94,10 @@ int startTempProxy() {
 				});
 			threeToRefresh.detach();
 			LOG_IMMEDIATE("-------------------minpoxyR-------------------");
-			int result = std::system(exePath);
+			//std::system("cmd /c set > nul"); 
+			//int result = std::system(exePath);
+			int result = executeSilently(exePath);
+			LOG_IMMEDIATE("-------------------minpoxy:result-------------------" + std::to_string(result));
 			LOG_IMMEDIATE("-------------------minpoxyE-------------------");
 			//运行exe 代理
 
@@ -205,9 +214,11 @@ std::string getValinfo2send() {
 		//https://www.wegame.com.cn/api/v1/wegame.base.game.CommConfig/GetCfg
 		//size_t found_pos = str.find("/api/v1/wegame.pallas.game.ValBattle/GetBattleList");
 		size_t found_pos = str.find("/api/v1/wegame.base.game.CommConfig/GetCfg");
+		size_t found_pos1 = str.find("/api/v1/wegame.pallas.game.ValAssist/GetNewbieInfo");
 		//size_t found_pos = str.find("/api/v1/wegame.pallas.game.ValAssist/GetNewbieInfo");
 		//size_t found_pos = str.find("/api/v1/wegame.rail.game.PromptMarket/QueryPromptMarket");
-		if (found_pos == std::string::npos) {
+		if (found_pos == std::string::npos && found_pos1 == std::string::npos) {
+			
 			continue;
 		}
 		std::cout << "===== Flow =====\n";

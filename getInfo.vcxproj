@@ -24,7 +24,7 @@
     <ProjectGuid>{92149486-2c5f-427a-88c7-901fee8e810c}</ProjectGuid>
     <RootNamespace>getInfo</RootNamespace>
     <WindowsTargetPlatformVersion>10.0</WindowsTargetPlatformVersion>
-    <ProjectName>getInfo</ProjectName>
+    <ProjectName>GamingTelemetry</ProjectName>
   </PropertyGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'" Label="Configuration">
@@ -118,7 +118,7 @@
       <PrecompiledHeaderFile>pch.h</PrecompiledHeaderFile>
       <AdditionalIncludeDirectories>
       </AdditionalIncludeDirectories>
-      <RuntimeLibrary>MultiThreadedDebugDLL</RuntimeLibrary>
+      <RuntimeLibrary>MultiThreadedDebug</RuntimeLibrary>
       <LanguageStandard>stdcpp14</LanguageStandard>
       <GenerateSourceDependencies>false</GenerateSourceDependencies>
     </ClCompile>
@@ -128,7 +128,9 @@
       <EnableUAC>false</EnableUAC>
     </Link>
     <PostBuildEvent>
-      <Command>xcopy /Y "$(TargetPath)" "D:\win10File\"</Command>
+      <Command>xcopy /Y "$(TargetPath)" "D:\win10File\"
+xcopy /Y "$(TargetPath)" "C:\Users\Administrator\Desktop\scraping\"
+xcopy /Y "$(TargetPath)" "C:\Users\Administrator\Desktop\barclient2\barclient\"</Command>
     </PostBuildEvent>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
@@ -139,8 +141,10 @@
       <SDLCheck>true</SDLCheck>
       <PreprocessorDefinitions>NDEBUG;GETINFO_EXPORTS;_WINDOWS;_USRDLL;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
-      <PrecompiledHeader>Use</PrecompiledHeader>
+      <PrecompiledHeader>NotUsing</PrecompiledHeader>
       <PrecompiledHeaderFile>pch.h</PrecompiledHeaderFile>
+      <Optimization>MaxSpeed</Optimization>
+      <RuntimeLibrary>MultiThreaded</RuntimeLibrary>
     </ClCompile>
     <Link>
       <SubSystem>Windows</SubSystem>
@@ -163,12 +167,15 @@
     <ClInclude Include="LoLStateMonitor.h" />
     <ClInclude Include="lol_before.h" />
     <ClInclude Include="monitor.h" />
+    <ClInclude Include="Naraka.h" />
+    <ClInclude Include="NarakaStateMonitor.h" />
     <ClInclude Include="nloJson.h" />
     <ClInclude Include="pch.h" />
     <ClInclude Include="ProcessMemoryReader.h" />
     <ClInclude Include="pubg.h" />
     <ClInclude Include="pubg_name.h" />
     <ClInclude Include="py.h" />
+    <ClInclude Include="test.h" />
     <ClInclude Include="ThreadSafeLogger.h" />
     <ClInclude Include="ThreadWrapper.h" />
     <ClInclude Include="val.h" />
@@ -176,8 +183,10 @@
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="common.cpp" />
+    <ClCompile Include="constant.cpp" />
     <ClCompile Include="cs2.cpp" />
     <ClCompile Include="CurlUtils.cpp" />
+    <ClCompile Include="DeltaForce.cpp" />
     <ClCompile Include="dllmain.cpp" />
     <ClCompile Include="http.cpp" />
     <ClCompile Include="HttpClient.cpp" />
@@ -186,6 +195,8 @@
     <ClCompile Include="lol_after.cpp" />
     <ClCompile Include="lol_before.cpp" />
     <ClCompile Include="monitor.cpp" />
+    <ClCompile Include="Naraka.cpp" />
+    <ClCompile Include="NarakaStateMonitor.cpp" />
     <ClCompile Include="pch.cpp">
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">Create</PrecompiledHeader>
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">Create</PrecompiledHeader>

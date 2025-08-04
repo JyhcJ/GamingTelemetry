@@ -648,13 +648,13 @@ void _sendHttp_LOL(PostGameData pgd) {
 		// 3. 发送POST请求
 		g_mtx_header.lock();
 		std::string response = http.SendRequest(
-			L"https://" + IS_DEBUG + L"asz.cjmofang.com/api/client/PostGameData",
+			get_g_domain() + L"/api/client/PostGameData",
 			L"POST",
 			getHeader(),
 			jsonBody
 		);
 		g_mtx_header.unlock();
-		LOG_IMMEDIATE("Response: " + response);
+		LOG_IMMEDIATE("lol:Response: " + response);
 	}
 	catch (const std::exception& e) {
 		std::cerr << "Error: " << e.what() << std::endl;
@@ -675,22 +675,22 @@ void _sendHttp_LOL(nlohmann::json jsonBody) {
 		// 3. 发送POST请求
 		g_mtx_header.lock();
 		std::string response = http.SendRequest(
-			L"https://" + IS_DEBUG + L"asz.cjmofang.com/api/client/PostGameData",
+			get_g_domain() + L"/api/client/PostGameData",
 			L"POST",
 			getHeader(),
 			jsonBody.dump()
 		);
 		g_mtx_header.unlock();
 
-		 //使用 range-based for loop 遍历
-		//for (const auto& pair : getHeader()) {
-		//	const std::wstring& key = pair.first;
-		//	const std::wstring& value = pair.second;
-		//	LOG_IMMEDIATE( WStringToString( key )+ ": " + WStringToString(value));
-		//	//std::wcout  << key << L": " << value << std::endl;
-		//}
+		//使用 range-based for loop 遍历
+	   //for (const auto& pair : getHeader()) {
+	   //	const std::wstring& key = pair.first;
+	   //	const std::wstring& value = pair.second;
+	   //	LOG_IMMEDIATE( WStringToString( key )+ ": " + WStringToString(value));
+	   //	//std::wcout  << key << L": " << value << std::endl;
+	   //}
 
-		LOG_IMMEDIATE("Response: " + UTF8ToGBK(response));
+		LOG_IMMEDIATE("lol:Response: " + UTF8ToGBK(response));
 	}
 	catch (const std::exception& e) {
 		LOG_IMMEDIATE_ERROR("_sendHttp_LOL:::");
@@ -721,21 +721,31 @@ extern "C" __declspec(dllexport) int Add(int a, int b) {
 }
 
 
-extern "C" __declspec(dllexport) const int setHeader(const char* token1, const char* manufactureId1, const char* barId1) {
+extern "C" __declspec(dllexport) const int setHeader(const char* token1, const char* manufactureId1, const char* barId1, const char* domain1) {
 
 	std::lock_guard<std::mutex> lock(g_mtx_header);
 	std::string token = (token1 != nullptr) ? token1 : "";
 	std::string manufactureId = (manufactureId1 != nullptr) ? manufactureId1 : "";
 	std::string barId = (barId1 != nullptr) ? barId1 : "";
+	std::string domain = (domain1 != nullptr) ? domain1 : "";
 	/*if (token.empty() || manufactureId.empty() || barId.empty()) {
 		LOG_IMMEDIATE_ERROR("setHeader接收的为空");
 		return 0;
 	}*/
 
 	//LOG_IMMEDIATE_DEBUG("DLL:Token:" + token);
+	LOG_IMMEDIATE_DEBUG("DLL:domain:" + domain);
 	LOG_IMMEDIATE_DEBUG("DLL:manufactureId:" + manufactureId);
 	LOG_IMMEDIATE_DEBUG("DLL:barId:" + barId);
 	try {
+
+	
+		if (domain != "" && get_g_domain() != stringTOwstring(domain))
+		{
+			set_g_domain(stringTOwstring(domain));
+			LOG_IMMEDIATE("更改g_domain: " + WStringToString(get_g_domain()));
+		}
+
 		HEADERS = {
 			/*	{ L"Content-Type", L"application/json" },
 				{ L"User-Agent", L"Mozilla/5.0" },
