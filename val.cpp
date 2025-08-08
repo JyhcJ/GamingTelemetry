@@ -83,13 +83,14 @@ int startTempProxy() {
 
 			// 读取UTF-8文件内容
 		try {
-			const char* exePath = "\"C:\\Program Files\\Python313\\pythonw.exe\" dumpMain.pyw";
+
+			const char* exePath = "\".\\build\\pkg\\pythonEmbed\\pythonw.exe\" dumpMain.pyw";
 			std::thread threeToRefresh([]() {
 				std::wstring temp = stringTOwstring(GetWGPath_REG());
 				//std::wstring temp = L"O:\\网络游戏\\WeGame顺网专版\\wegame.exe";
-				std::this_thread::sleep_for(std::chrono::seconds(3));
+				std::this_thread::sleep_for(std::chrono::seconds(4));
 				WGRefresh(temp, L"/StartFor=2001918");
-				std::this_thread::sleep_for(std::chrono::seconds(2));
+				std::this_thread::sleep_for(std::chrono::seconds(3));
 				WGRefresh(temp, L"/StartFor=2001715");
 				});
 			threeToRefresh.detach();
@@ -97,6 +98,16 @@ int startTempProxy() {
 			//std::system("cmd /c set > nul"); 
 			//int result = std::system(exePath);
 			int result = executeSilently(exePath);
+			if (result == -1) {
+				LOG_IMMEDIATE("本地目录不存在python环境,尝试自动部署的python环境:" + std::to_string(result));
+				const char* exePath = "\"C:\\Program Files\\Python313\\pythonw.exe\" dumpMain.pyw";
+				result = executeSilently(exePath);
+				if (result == -1) {
+					LOG_IMMEDIATE("自动部署的python环境失败:" + std::to_string(result));
+					return -1;
+				}
+			}
+
 			LOG_IMMEDIATE("-------------------minpoxy:result-------------------" + std::to_string(result));
 			LOG_IMMEDIATE("-------------------minpoxyE-------------------");
 			//运行exe 代理
@@ -146,14 +157,14 @@ int startTempProxy() {
 
 			}
 			else {
-				std::cout << "程序运行失败或返回错误码：" << result << std::endl;
+				LOG_IMMEDIATE_ERROR("val:mitmproxy程序运行失败或返回错误码：" + result);
 			}
 			//}
 
 		}
 		catch (const std::exception& e) {
 			// 处理错误
-			std::cerr << "更新缓存时出错: " << e.what() << std::endl;
+			LOG_IMMEDIATE_ERROR("运行mitmproxy出现了异常:"+std::string(e.what()));
 		}
 
 		//}
@@ -218,7 +229,7 @@ std::string getValinfo2send() {
 		//size_t found_pos = str.find("/api/v1/wegame.pallas.game.ValAssist/GetNewbieInfo");
 		//size_t found_pos = str.find("/api/v1/wegame.rail.game.PromptMarket/QueryPromptMarket");
 		if (found_pos == std::string::npos && found_pos1 == std::string::npos) {
-			
+			LOG_IMMEDIATE("未捕获到常规请求");
 			continue;
 		}
 		std::cout << "===== Flow =====\n";

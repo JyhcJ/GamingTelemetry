@@ -34,12 +34,13 @@ void ThreadSafeLogger::SetOutputFile(const std::string& filePath) {
 //新增(分段)
 void ThreadSafeLogger::RotateLogFileIfNeeded() {
 	auto now = std::chrono::system_clock::now();
-	auto hoursSinceLastRotation = std::chrono::duration_cast<std::chrono::milliseconds>(
+	//auto hoursSinceLastRotation = std::chrono::duration_cast<std::chrono::milliseconds>(
+	//	now - m_lastRotationTime).count();
+	auto hoursSinceLastRotation = std::chrono::duration_cast<std::chrono::hours>(
 		now - m_lastRotationTime).count();
-	/*auto hoursSinceLastRotation = std::chrono::duration_cast<std::chrono::hours>(
-		now - m_lastRotationTime).count();*/
 
-	if (hoursSinceLastRotation >= 24) {
+	if (hoursSinceLastRotation >= 6) {
+		std::cout << "日志分段" << std::endl;
 		if (m_logFile.is_open()) {
 			m_logFile.close();
 		}
@@ -220,7 +221,13 @@ std::string LogGetCurrentTimeString() {
 void ThreadSafeLogger::ProcessLogs() {
 	while (m_running || !m_logQueue.empty()) {
 		std::unique_lock<std::mutex> lock(m_queueMutex);
-		m_queueCV.wait(lock, [this] {
+
+		/*m_queueCV.wait(lock, [this] {
+			return !m_logQueue.empty() || !m_running;
+			});*/
+
+		// 每60秒唤醒一次检查分段（即使无新日志）
+		m_queueCV.wait_for(lock, std::chrono::seconds(60), [this] {
 			return !m_logQueue.empty() || !m_running;
 			});
 

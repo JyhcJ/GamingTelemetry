@@ -166,11 +166,11 @@ std::string gethostName() {
 	DWORD size = sizeof(computerName) / sizeof(computerName[0]);
 	std::string hostName = TCHARToString(computerName);
 	if (GetComputerName(computerName, &size)) {
-		LOG_IMMEDIATE("Computer Name: " + hostName);
+		//LOG_IMMEDIATE("Computer Name: " + hostName);
 
 	}
 	else {
-		LOG_IMMEDIATE("Failed to get computer name. Error: " + GetLastError());
+		LOG_IMMEDIATE("gethostName :: Failed to get computer name. Error: " + GetLastError());
 	}
 	return  hostName;
 }
@@ -1039,6 +1039,13 @@ const std::string& mapLookupOrDefault(const std::map<std::string, std::string>& 
 	return (it != m.end()) ? it->second : key;
 }
 
+const std::string mapLookupOrDefault(const std::map<int, std::string>& m, int key) {
+	auto it = m.find(key);
+	return (it != m.end()) ? it->second : std::to_string(key);
+}
+
+
+
 // 将单个 Unicode 码点转为 \uXXXX 格式
 std::string codepointToUnicodeEscape(uint32_t codepoint) {
 	std::stringstream ss;
@@ -1175,7 +1182,7 @@ std::unordered_set<std::string>	 get_recent_folders(const std::string& dir_path,
 		FindClose(hFind);
 	}
 	else {
-		std::cerr << "无法打开目录: " << dir_path << std::endl;
+		LOG_IMMEDIATE_ERROR("pubg:无法打开目录:" + dir_path);
 	}
 
 	return recent_folders;
@@ -1202,4 +1209,16 @@ std::string remove_escape_chars(std::string str) {
 
 	str.erase(std::remove(str.begin(), str.end(), '\\'), str.end());
 	return str;
+}
+
+std::string readUtf8File(const std::string& filename) {
+	std::ifstream file(filename, std::ios::binary);
+	if (!file.is_open()) {
+		throw std::runtime_error("Failed to open file: " + filename);
+	}
+
+	// 读取文件内容到字符串
+	std::string content((std::istreambuf_iterator<char>(file)),
+		std::istreambuf_iterator<char>());
+	return content;
 }

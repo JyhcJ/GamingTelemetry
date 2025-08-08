@@ -9,7 +9,7 @@ NarakaStatsTracker tracker;
 void NarakaStateMonitor::OnClientStarted() {
 	std::string playerName;
 	//PlayerDataManager playerDataManager;
-	bool isInit = true;
+	bool isInit = false;
 	//std::thread valMatchThread([this]() {
 	//获取session 
 
@@ -24,7 +24,7 @@ void NarakaStateMonitor::OnClientStarted() {
 		//LOG_IMMEDIATE("去除首尾value: " + remove_escape_chars(trim_quotes(jsonData1["metadata"]["value"].dump())));
 		LOG_IMMEDIATE(jsonData2.dump() + "cjmofang.com.");
 		session=jsonData2["yongjiewujian"]["token"];
-		LOG_IMMEDIATE(generate_md5(jsonData2.dump() + "cjmofang.com."));
+		//LOG_IMMEDIATE(generate_md5(jsonData2.dump() + "cjmofang.com."));
 	}
 	catch (const std::exception& e) {
 		LOG_IMMEDIATE("NarakaStateMonitor::OnClientStarted():" + std::string(e.what()));
@@ -55,6 +55,7 @@ void NarakaStateMonitor::OnClientStarted() {
 		LOG_IMMEDIATE("NARAKA 删除日志文件");
 	}
 
+	std::string lastPlayerName;
 	while (true) {
 		std::this_thread::sleep_for(std::chrono::milliseconds(5000));
 
@@ -62,14 +63,15 @@ void NarakaStateMonitor::OnClientStarted() {
 			//获取name;
 
 
-			tracker.playerData->readPlayerNameFromFile(playerNameFile, playerName);
+			tracker.playerData->readPlayerNameFromFileDESC(playerNameFile, playerName);
 			tracker.playerData->setPlayerName(playerName);
+			lastPlayerName = playerName;
 			if (playerName == "") {
 				continue;
 			}
 			else{
 
-				LOG_IMMEDIATE("玩家名称: " + UTF8ToGBK(playerName));
+				LOG_IMMEDIATE("Naraka:玩家名称: " + UTF8ToGBK(playerName));
 			}
 			break;
 		}
@@ -83,6 +85,12 @@ void NarakaStateMonitor::OnClientStarted() {
 
 	
 	while (IsProcessRunning(L"NarakaBladepoint.exe")) {
+		tracker.playerData->readPlayerNameFromFileDESC(playerNameFile, playerName);
+		if (lastPlayerName != playerName) {
+			LOG_IMMEDIATE("Naraka:玩家名称变更: " + UTF8ToGBK(playerName));
+			lastPlayerName = playerName;
+			isInit = true;
+		}
 		bool isNew = tracker.checkNew(playerName, isInit);
 		std::this_thread::sleep_for(std::chrono::milliseconds(1000 * 30));
 		isInit = false;

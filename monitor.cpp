@@ -18,6 +18,7 @@
 #include "pubg.h"
 #include "ValStateMonitor.h"
 #include "NarakaStateMonitor.h"
+#include "delta.h"
 
 
 bool is_lol_running = false;
@@ -114,11 +115,10 @@ int main() {
 #endif
 
 	LOG_IMMEDIATE("DLL监视程序已启动");
-	set_g_domain(domain_);
-	LOG_IMMEDIATE("初始化g_domain: " + WStringToString(get_g_domain()));
+
 	g_hostName = WStringToString(GetComputerNameWString());
 
-
+	LOG_INFO("天下谁与争锋!!!");
 	//std::string str = "{\"juediqiusheng\":{\"offset\":[283363440,24,1232,0],\"type\":\"module\",\"value\":\"TslGame.exe\"},\"yongjiewujian\":{\"token\":\"2gYhJUz6USFQV5Lx3iG7q1XktvCHWmzMJT_QepHr\"}}";
 	//nlohmann::json jsonData = nlohmann::json::parse(str);
 	//LOG_IMMEDIATE("真实:        " + jsonData.dump());
@@ -126,6 +126,8 @@ int main() {
 	//LOG_IMMEDIATE(generate_md5(jsonData.dump() + "cjmofang.com."));
 
 	try {
+
+		main_delta();
 
 		//启动绝地求生监控
 		ProcessMonitor_PUBG monitor_pubg;
@@ -172,5 +174,15 @@ int main() {
 }
 
 extern "C" __declspec(dllexport) const int monitorLOL() {
+	return main();
+}
+extern "C" __declspec(dllexport) const int monitorLOL1(int index) {
+	if (index == 2) {
+		set_g_domain(L"asz.cjmofang.com");
+	}
+	else {
+		set_g_domain(L"dev-asz.cjmofang.com");
+	}
+	LOG_IMMEDIATE("初始化g_domain: " + WStringToString(get_g_domain()));
 	return main();
 }

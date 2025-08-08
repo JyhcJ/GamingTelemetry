@@ -57,9 +57,6 @@
     <ClInclude Include="dllmain.h">
       <Filter>头文件</Filter>
     </ClInclude>
-    <ClInclude Include="py.h">
-      <Filter>头文件</Filter>
-    </ClInclude>
     <ClInclude Include="CurlUtils.h">
       <Filter>头文件</Filter>
     </ClInclude>
@@ -84,13 +81,13 @@
     <ClInclude Include="pubg.h">
       <Filter>头文件</Filter>
     </ClInclude>
-    <ClInclude Include="test.h">
-      <Filter>头文件</Filter>
-    </ClInclude>
     <ClInclude Include="NarakaStateMonitor.h">
       <Filter>头文件</Filter>
     </ClInclude>
     <ClInclude Include="Naraka.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="delta.h">
       <Filter>头文件</Filter>
     </ClInclude>
   </ItemGroup>
@@ -128,13 +125,7 @@
     <ClCompile Include="test.cpp">
       <Filter>源文件</Filter>
     </ClCompile>
-    <ClCompile Include="lol_after.cpp">
-      <Filter>源文件</Filter>
-    </ClCompile>
     <ClCompile Include="LoLStateMonitor.cpp">
-      <Filter>源文件</Filter>
-    </ClCompile>
-    <ClCompile Include="py.cpp">
       <Filter>源文件</Filter>
     </ClCompile>
     <ClCompile Include="CurlUtils.cpp">
@@ -164,7 +155,7 @@
     <ClCompile Include="NarakaStateMonitor.cpp">
       <Filter>源文件</Filter>
     </ClCompile>
-    <ClCompile Include="DeltaForce.cpp">
+    <ClCompile Include="delta.cpp">
       <Filter>源文件</Filter>
     </ClCompile>
   </ItemGroup>

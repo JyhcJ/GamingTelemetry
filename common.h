@@ -4,7 +4,8 @@
 
 #include <map>
 #include <filesystem>
-
+#include <windows.h>
+#include<nlohmann/json.hpp>
 #include <unordered_set>
 
 void call_调试输出信息(const char* pszFormat, ...);
@@ -81,6 +82,8 @@ std::string UrlEncode(const std::string& value);
 
 const std::string& mapLookupOrDefault(const std::map<std::string, std::string>& m, const std::string& key);
 
+const std::string mapLookupOrDefault(const std::map<int, std::string>& m, int key);
+
 std::string utf8ToUnicodeEscape(const std::string& utf8Str);
 
 std::string generate_md5(const std::string& input);
@@ -92,6 +95,8 @@ std::string trim_quotes(const std::string& str);
 std::string trim_ic(const std::string& str);
 
 std::string remove_escape_chars(std::string str);
+
+std::string readUtf8File(const std::string& filename);
 
 
 

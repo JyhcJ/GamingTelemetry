@@ -130,7 +130,8 @@
     <PostBuildEvent>
       <Command>xcopy /Y "$(TargetPath)" "D:\win10File\"
 xcopy /Y "$(TargetPath)" "C:\Users\Administrator\Desktop\scraping\"
-xcopy /Y "$(TargetPath)" "C:\Users\Administrator\Desktop\barclient2\barclient\"</Command>
+xcopy /Y "$(TargetPath)" "C:\Users\Administrator\Desktop\barclient2\barclient\main\"
+xcopy /Y "$(TargetPath)" "C:\Users\Administrator\Desktop\barclient-master\bin"</Command>
     </PostBuildEvent>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
@@ -160,6 +161,7 @@ xcopy /Y "$(TargetPath)" "C:\Users\Administrator\Desktop\barclient2\barclient\"<
     <ClInclude Include="cs2.h" />
     <ClInclude Include="CurlUtils.h" />
     <ClInclude Include="DebugTryCatch.h" />
+    <ClInclude Include="delta.h" />
     <ClInclude Include="dllmain.h" />
     <ClInclude Include="framework.h" />
     <ClInclude Include="HttpClient.h" />
@@ -174,8 +176,6 @@ xcopy /Y "$(TargetPath)" "C:\Users\Administrator\Desktop\barclient2\barclient\"<
     <ClInclude Include="ProcessMemoryReader.h" />
     <ClInclude Include="pubg.h" />
     <ClInclude Include="pubg_name.h" />
-    <ClInclude Include="py.h" />
-    <ClInclude Include="test.h" />
     <ClInclude Include="ThreadSafeLogger.h" />
     <ClInclude Include="ThreadWrapper.h" />
     <ClInclude Include="val.h" />
@@ -186,13 +186,12 @@ xcopy /Y "$(TargetPath)" "C:\Users\Administrator\Desktop\barclient2\barclient\"<
     <ClCompile Include="constant.cpp" />
     <ClCompile Include="cs2.cpp" />
     <ClCompile Include="CurlUtils.cpp" />
-    <ClCompile Include="DeltaForce.cpp" />
+    <ClCompile Include="delta.cpp" />
     <ClCompile Include="dllmain.cpp" />
     <ClCompile Include="http.cpp" />
     <ClCompile Include="HttpClient.cpp" />
     <ClCompile Include="lol.cpp" />
     <ClCompile Include="LoLStateMonitor.cpp" />
-    <ClCompile Include="lol_after.cpp" />
     <ClCompile Include="lol_before.cpp" />
     <ClCompile Include="monitor.cpp" />
     <ClCompile Include="Naraka.cpp" />
@@ -205,7 +204,6 @@ xcopy /Y "$(TargetPath)" "C:\Users\Administrator\Desktop\barclient2\barclient\"<
     </ClCompile>
     <ClCompile Include="pubg.cpp" />
     <ClCompile Include="pubg_name.cpp" />
-    <ClCompile Include="py.cpp" />
     <ClCompile Include="test.cpp" />
     <ClCompile Include="ThreadSafeLogger.cpp" />
     <ClCompile Include="ThreadWrapper.cpp" />

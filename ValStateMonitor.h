@@ -40,6 +40,13 @@ public:
 
 	// Ö÷¼à¿ØÑ­»·
 	void MonitorLoop() {
+		GetPath_REG(
+			HKEY_CURRENT_USER,
+			L"SOFTWARE\\Tencent\\valorant.live",
+			L"InstallLocation");
+		GetWGPath_REG();
+	
+
 		while (true) {
 			CheckStateTransition();
 			std::this_thread::sleep_for(std::chrono::seconds(1));

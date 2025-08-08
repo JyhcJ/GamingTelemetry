@@ -121,7 +121,7 @@ bool InitNetwork() {
 		return false;
 	}
 
-	LOG_IMMEDIATE("GSI server started on port " + std::to_string(GSI_PORT));
+	LOG_IMMEDIATE("CSGO:GSI server started on port " + std::to_string(GSI_PORT));
 	return true;
 }
 
@@ -567,11 +567,11 @@ bool CreateGameStateIntegrationFile(const std::string& directoryPath) {
 		outFile << "}\n";
 
 		outFile.close();
-		std::cout << "文件创建成功: " << filePath << std::endl;
+		LOG_IMMEDIATE("csgo配置文件创建成功:" + filePath);
 		return true;
 	}
 	else {
-		std::cerr << "无法创建目录: " << directoryPath << std::endl;
+		LOG_IMMEDIATE("csgo配置文件:无法创建目录:" + directoryPath);
 		return false;
 	}
 }

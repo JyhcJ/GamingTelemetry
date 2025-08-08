@@ -3,9 +3,6 @@
 #include <winhttp.h>
 #include <string>
 #include <map>
-#include <vector>
-
-#include<nlohmann/json.hpp>
 
 #pragma comment(lib, "winhttp.lib")
 

@@ -219,6 +219,35 @@ static std::map<int,int> NARAKA_teamSize = {
 };				
 
 
+static std::map<int, std::string> DELTA_rankMap = {
+	{1, "QING_TONG"},
+	{2, "QING_TONG"},
+	{3, "QING_TONG"},
+	{4, "BAI_YIN"},
+	{5, "BAI_YIN"},
+	{6, "BAI_YIN"},
+	{7, "HUANG_JIN"},
+	{8, "HUANG_JIN"},
+	{9, "HUANG_JIN"},
+	{10, "HUANG_JIN"},
+	{11, "BO_JIN"},
+	{12, "BO_JIN"},
+	{13, "BO_JIN"},
+	{14, "BO_JIN"},
+	{15, "ZUAN_SHI"},
+	{16, "ZUAN_SHI"},
+	{17, "ZUAN_SHI"},
+	{18, "ZUAN_SHI"},
+	{19, "ZUAN_SHI"},
+	{20, "HEI_YING"},
+	{21, "HEI_YING"},
+	{22, "HEI_YING"},
+	{23, "HEI_YING"},
+	{24, "HEI_YING"},
+	{25, "SAN_JIAO_ZHOU_DIAN_FEN"},
+	{0, "UNLIMIT"},
+};
+
 
 //BOMB=普通模式,DEATHMATCH=乱斗模式,GUN_GAME=武装升级,ONE_FOR_ALL=克隆模式,QUICK_BOMB=爆能快攻,SNOWBALL_FIGHT=雪球大战,SWIFTPLAY=极速模式,HURM=团队乱斗,CUSTOM=自定义,RANK=竞技模式
 //std::unordered_map<std::string, int> rankLevel = {
