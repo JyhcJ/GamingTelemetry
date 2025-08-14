@@ -186,7 +186,7 @@ xcopy /Y "$(TargetPath)" "C:\Users\Administrator\Desktop\barclient-master\bin"</
     <ClCompile Include="constant.cpp" />
     <ClCompile Include="cs2.cpp" />
     <ClCompile Include="CurlUtils.cpp" />
-    <ClCompile Include="delta.cpp" />
+    <ClCompile Include="Delta.cpp" />
     <ClCompile Include="dllmain.cpp" />
     <ClCompile Include="http.cpp" />
     <ClCompile Include="HttpClient.cpp" />

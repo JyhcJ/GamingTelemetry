@@ -757,6 +757,7 @@ bool WGRefresh(const std::wstring& exePath, const std::wstring& parameters) {
 
 std::string FindGamePath(const std::string& relativePath) {
 	std::string steamPath = GetSteamInstallPath();
+	LOG_IMMEDIATE("steamPath:" + steamPath);
 	if (steamPath.empty()) {
 		return "";
 	}
@@ -901,6 +902,7 @@ std::string GetLastErrorAsString(std::string str, DWORD errorCode) {
 void _sendHttp(std::wstring url, std::string jsonDump, std::string& ret) {
 	HttpClient http;
 	LOG_IMMEDIATE(jsonDump);
+	LOG_IMMEDIATE(WStringToString( get_g_domain() + url));
 
 	try {
 		// 3. 发送POST请求
@@ -1222,3 +1224,191 @@ std::string readUtf8File(const std::string& filename) {
 		std::istreambuf_iterator<char>());
 	return content;
 }
+
+
+// 根据窗口句柄获取关联的进程名
+std::wstring GetProcessNameFromWindow(HWND hwnd) {
+	DWORD processId = 0;
+	GetWindowThreadProcessId(hwnd, &processId);
+
+	if (processId == 0) {
+		return L"";
+	}
+
+	HANDLE hSnapshot = CreateToolhelp32Snapshot(TH32CS_SNAPPROCESS, 0);
+	if (hSnapshot == INVALID_HANDLE_VALUE) {
+		return L"";
+	}
+
+	PROCESSENTRY32W pe32;
+	pe32.dwSize = sizeof(PROCESSENTRY32W);
+
+	std::wstring processName = L"";
+	if (Process32FirstW(hSnapshot, &pe32)) {
+		do {
+			if (pe32.th32ProcessID == processId) {
+				processName = pe32.szExeFile;
+				break;
+			}
+		} while (Process32NextW(hSnapshot, &pe32));
+	}
+
+	CloseHandle(hSnapshot);
+	return processName;
+}
+
+// 枚举窗口的回调函数
+BOOL CALLBACK EnumWindowsCallback(HWND hwnd, LPARAM lParam) {
+	const std::wstring* targetProcessName = reinterpret_cast<std::wstring*>(lParam);
+
+	// 跳过无效或不可见的窗口
+	if (!IsWindowVisible(hwnd)) {
+		return TRUE;
+	}
+
+	std::wstring windowProcessName = GetProcessNameFromWindow(hwnd);
+	if (windowProcessName.empty()) {
+		return TRUE;
+	}
+
+	// 比较进程名（不区分大小写）
+	if (_wcsicmp(windowProcessName.c_str(), targetProcessName->c_str()) == 0) {
+		// 检查窗口是否最小化
+		if (IsIconic(hwnd)) {
+			// 恢复最小化窗口
+			ShowWindow(hwnd, SW_RESTORE);
+		}
+		// 确保窗口显示在最前面
+		SetForegroundWindow(hwnd);
+		SetFocus(hwnd);
+		std::wcout << L"已恢复并激活窗口: " << windowProcessName << std::endl;
+		return FALSE; // 找到并处理后停止枚举
+	}
+
+	return TRUE; // 继续枚举
+}
+
+// 枚举窗口的回调函数
+BOOL CALLBACK EnumWindowsCallback_Minimize(HWND hwnd, LPARAM lParam) {
+	const std::wstring* targetProcessName = reinterpret_cast<std::wstring*>(lParam);
+
+	// 跳过不可见窗口
+	if (!IsWindowVisible(hwnd)) {
+		return TRUE;
+	}
+
+	std::wstring windowProcessName = GetProcessNameFromWindow(hwnd);
+	if (windowProcessName.empty()) {
+		return TRUE;
+	}
+
+	// 匹配进程名（不区分大小写）
+	if (_wcsicmp(windowProcessName.c_str(), targetProcessName->c_str()) == 0) {
+		// 最小化窗口
+		ShowWindow(hwnd, SW_MINIMIZE);
+		std::wcout << L"WeGame 窗口已最小化: " << windowProcessName << std::endl;
+		return FALSE; // 找到后停止枚举
+	}
+
+	return TRUE; // 继续枚举
+}
+
+// 主函数：最小化 WeGame 窗口
+bool MinimizeWeGameWindow(std::wstring& processName) {
+	// 枚举所有窗口并尝试最小化 WeGame
+	return EnumWindows(EnumWindowsCallback_Minimize,
+		reinterpret_cast<LPARAM>(const_cast<std::wstring*>(&processName)));
+}
+
+// 主函数：恢复指定进程名的窗口
+bool RestoreWindowByProcessName(const std::wstring& processName) {
+	// 枚举所有顶级窗口
+	return EnumWindows(EnumWindowsCallback, reinterpret_cast<LPARAM>(const_cast<std::wstring*>(&processName)));
+}
+
+// 结束指定进程名的第一个实例
+bool TerminateProcessByName(const std::wstring& processName) {
+	HANDLE hSnapshot = CreateToolhelp32Snapshot(TH32CS_SNAPPROCESS, 0);
+	if (hSnapshot == INVALID_HANDLE_VALUE) {
+		std::wcerr << L"创建进程快照失败。\n";
+		return false;
+	}
+
+	PROCESSENTRY32W pe32;
+	pe32.dwSize = sizeof(PROCESSENTRY32W);
+
+	bool found = false;
+	if (Process32FirstW(hSnapshot, &pe32)) {
+		do {
+			// 比较进程名（不区分大小写）
+			if (_wcsicmp(pe32.szExeFile, processName.c_str()) == 0) {
+				// 尝试打开进程
+				HANDLE hProcess = OpenProcess(PROCESS_TERMINATE, FALSE, pe32.th32ProcessID);
+				if (hProcess != NULL) {
+					// 尝试终止进程
+					if (TerminateProcess(hProcess, 0)) {
+						std::wcout << L"成功终止进程: " << pe32.szExeFile
+							<< L" (PID: " << pe32.th32ProcessID << L")\n";
+						CloseHandle(hProcess);
+						found = true;
+						break; // 结束第一个匹配的进程
+					}
+					else {
+						std::wcerr << L"无法终止进程 (PID: " << pe32.th32ProcessID
+							<< L"), 错误代码: " << GetLastError() << L"\n";
+					}
+					CloseHandle(hProcess);
+				}
+				else {
+					std::wcerr << L"无法打开进程 (PID: " << pe32.th32ProcessID
+						<< L"), 错误代码: " << GetLastError() << L"\n";
+				}
+			}
+		} while (Process32NextW(hSnapshot, &pe32));
+	}
+	else {
+		std::wcerr << L"Process32First 失败，错误代码: " << GetLastError() << L"\n";
+	}
+
+	CloseHandle(hSnapshot);
+	return found;
+}
+std::string GBKToUTF8(const std::string& strGBK) {
+	// 1. GBK → UTF-16 (宽字符)
+	int len = MultiByteToWideChar(936, 0, strGBK.c_str(), -1, NULL, 0);
+	if (len <= 0) {
+		return "";
+	}
+	wchar_t* wstr = new wchar_t[len];
+	MultiByteToWideChar(936, 0, strGBK.c_str(), -1, wstr, len);
+
+	// 2. UTF-16 → UTF-8
+	len = WideCharToMultiByte(CP_UTF8, 0, wstr, -1, NULL, 0, NULL, NULL);
+	if (len <= 0) {
+		delete[] wstr;
+		return "";
+	}
+	char* str = new char[len];
+	WideCharToMultiByte(CP_UTF8, 0, wstr, -1, str, len, NULL, NULL);
+
+	std::string result(str);
+	delete[] wstr;
+	delete[] str;
+	return result;
+}
+std::string SecondEncoding2UTF8(std::string garbled,std::string& toUTF8) {
+	//std::string garbled = "娴锋兜鐨刯鎻℃妸1"; // 实际是 GBK 编码的字节序列
+
+	// 假设 garbled 是 GBK 被误读为 UTF-8 的结果
+	std::string realUTF8;
+	for (char c : garbled) {
+		realUTF8.push_back(static_cast<unsigned char>(c));
+	}
+
+	// 现在 realUTF8 是原始 GBK 字节流，可以正确转换为 UTF-8
+	std::string gbk8Str = UTF8ToGBK(realUTF8); // 需要实现 GBKToUTF8
+	toUTF8 = realUTF8;
+	return gbk8Str;
+}
+
+

@@ -100,6 +100,14 @@ std::string readUtf8File(const std::string& filename);
 
 
 
+bool MinimizeWeGameWindow(std::wstring& processName);
+
+bool RestoreWindowByProcessName(const std::wstring& processName);
+
+bool TerminateProcessByName(const std::wstring& processName);
+
+std::string SecondEncoding2UTF8(std::string garbled, std::string& toUTF8);
+
 template<typename MapType>
 typename MapType::mapped_type mapLookupOrDefaultPlus(
 	const MapType& m,

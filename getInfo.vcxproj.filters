@@ -155,7 +155,7 @@
     <ClCompile Include="NarakaStateMonitor.cpp">
       <Filter>源文件</Filter>
     </ClCompile>
-    <ClCompile Include="delta.cpp">
+    <ClCompile Include="Delta.cpp">
       <Filter>源文件</Filter>
     </ClCompile>
   </ItemGroup>

@@ -39,6 +39,7 @@ void _sendHttp_Val(nlohmann::json jsonBody) {
 	try {
 		// 3. ∑¢ÀÕPOST«Î«Û
 		//g_mtx_header.lock();
+		LOG_IMMEDIATE(WStringToString(get_g_domain() + L"/api/client/WuweiqiyuePostGameData"));
 		std::string response = http.SendRequest(
 			get_g_domain() + L"/api/client/WuweiqiyuePostGameData",
 			L"POST",
