@@ -8,6 +8,24 @@
 #include<nlohmann/json.hpp>
 #include <unordered_set>
 
+#include <boost/stacktrace.hpp>
+
+#include <exception>
+#include <sstream>
+#define LOG_EXCEPTION_WITH_STACK(e) \
+    { \
+        try { \
+            std::ostringstream oss; \
+            oss << "Caught exception: " << e.what() << "\n" \
+                << "Stack trace at catch site:\n" \
+                << boost::stacktrace::stacktrace(); \
+            std::string msg = oss.str(); \
+            LOG_IMMEDIATE_ERROR("Caught exception: " + std::string(e.what()) +"\n" +"Stack trace at catch site:\n"+msg); \
+        } catch (...) { \
+            LOG_IMMEDIATE_ERROR("Exception caught, but failed to log stack trace."); \
+        } \
+    }
+
 void call_调试输出信息(const char* pszFormat, ...);
 
 void DebugPrintf(const char* format, ...);
@@ -79,6 +97,8 @@ int executeSilently(const char* cmd);
 std::string GetEnvSafe(const char* key);
 
 std::string UrlEncode(const std::string& value);
+
+int string_to_int(const std::string& str);
 
 const std::string& mapLookupOrDefault(const std::map<std::string, std::string>& m, const std::string& key);
 

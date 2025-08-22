@@ -91,27 +91,67 @@ std::wstring Utf8ToWstring(const std::string& str) {
 	return wstrTo;
 }
 
+//std::string UTF8ToGBK(const std::string& strUTF8) {
+//	// 1. UTF-8 → UTF-16 (宽字符)
+//	int len = MultiByteToWideChar(CP_UTF8, 0, strUTF8.c_str(), -1, NULL, 0);
+//	if (len <= 0) return "";
+//	wchar_t* wstr = new wchar_t[len];
+//	MultiByteToWideChar(CP_UTF8, 0, strUTF8.c_str(), -1, wstr, len);
+//
+//	// 2. UTF-16 → GBK
+//	len = WideCharToMultiByte(CP_ACP, 0, wstr, -1, NULL, 0, NULL, NULL);
+//	if (len <= 0) {
+//		delete[] wstr;
+//		return "";
+//	}
+//	char* str = new char[len];
+//	WideCharToMultiByte(CP_ACP, 0, wstr, -1, str, len, NULL, NULL);
+//
+//	std::string result(str);
+//	delete[] wstr;
+//	delete[] str;
+//	return result;
+//}
+
 std::string UTF8ToGBK(const std::string& strUTF8) {
-	// 1. UTF-8 → UTF-16 (宽字符)
-	int len = MultiByteToWideChar(CP_UTF8, 0, strUTF8.c_str(), -1, NULL, 0);
-	if (len <= 0) return "";
-	wchar_t* wstr = new wchar_t[len];
-	MultiByteToWideChar(CP_UTF8, 0, strUTF8.c_str(), -1, wstr, len);
+	// 使用智能指针自动释放内存
+	std::unique_ptr<wchar_t[]> wstr;
+	std::unique_ptr<char[]> str;
+	int len = 0;
 
-	// 2. UTF-16 → GBK
-	len = WideCharToMultiByte(CP_ACP, 0, wstr, -1, NULL, 0, NULL, NULL);
-	if (len <= 0) {
-		delete[] wstr;
-		return "";
+	try {
+		// 1. UTF-8 → UTF-16
+		len = MultiByteToWideChar(CP_UTF8, 0, strUTF8.c_str(), -1, nullptr, 0);
+		if (len <= 0) {
+			throw std::runtime_error("MultiByteToWideChar failed with error: " + std::to_string(GetLastError()));
+		}
+
+		wstr = std::make_unique<wchar_t[]>(len);
+		if (MultiByteToWideChar(CP_UTF8, 0, strUTF8.c_str(), -1, wstr.get(), len) == 0) {
+			throw std::runtime_error("MultiByteToWideChar conversion failed with error: " + std::to_string(GetLastError()));
+		}
+
+		// 2. UTF-16 → GBK
+		len = WideCharToMultiByte(CP_ACP, 0, wstr.get(), -1, nullptr, 0, nullptr, nullptr);
+		if (len <= 0) {
+			throw std::runtime_error("WideCharToMultiByte failed with error: " + std::to_string(GetLastError()));
+		}
+
+		str = std::make_unique<char[]>(len);
+		if (WideCharToMultiByte(CP_ACP, 0, wstr.get(), -1, str.get(), len, nullptr, nullptr) == 0) {
+			throw std::runtime_error("WideCharToMultiByte conversion failed with error: " + std::to_string(GetLastError()));
+		}
+
+		return std::string(str.get());
 	}
-	char* str = new char[len];
-	WideCharToMultiByte(CP_ACP, 0, wstr, -1, str, len, NULL, NULL);
-
-	std::string result(str);
-	delete[] wstr;
-	delete[] str;
-	return result;
+	catch (const std::exception& e) {
+		// 记录错误日志（实际使用时替换为您的日志系统）
+		LOG_EXCEPTION_WITH_STACK(e)
+		//LOG_ERROR(("UTF8ToGBK error: " + std::string(e.what()) + "\n").c_str());
+		return ""; // 返回空字符串表示失败
+	}
 }
+
 
 
 std::string WStringToGBK(const std::wstring& wstr) {
@@ -249,31 +289,42 @@ std::wstring stringTOwstring(const std::string& str) {
 //	return found;
 //}
 bool IsProcessRunning(const std::wstring& processName) {
-	HANDLE hSnapshot = CreateToolhelp32Snapshot(TH32CS_SNAPPROCESS, 0);
-	if (hSnapshot == INVALID_HANDLE_VALUE) {
-		LOG_IMMEDIATE("------hSnapshot == INVALID_HANDLE_VALUE");
-		return false;
-	}
-
-	PROCESSENTRY32W pe32;
-	pe32.dwSize = sizeof(PROCESSENTRY32W);
-
-	if (!Process32FirstW(hSnapshot, &pe32)) {
-		CloseHandle(hSnapshot);
-		LOG_IMMEDIATE("------Process32FirstW 失败 ");
-		return false;
-	}
-
-	bool found = false;
-	do {
-		if (std::wstring(pe32.szExeFile) == processName) {
-			found = true;
-			break;
+	try {
+		HANDLE hSnapshot = CreateToolhelp32Snapshot(TH32CS_SNAPPROCESS, 0);
+		if (hSnapshot == INVALID_HANDLE_VALUE) {
+			LOG_IMMEDIATE("------hSnapshot == INVALID_HANDLE_VALUE");
+			return false;
 		}
-	} while (Process32NextW(hSnapshot, &pe32));
 
-	CloseHandle(hSnapshot);
-	return found;
+		PROCESSENTRY32W pe32;
+		pe32.dwSize = sizeof(PROCESSENTRY32W);
+
+		if (!Process32FirstW(hSnapshot, &pe32)) {
+			CloseHandle(hSnapshot);
+			LOG_IMMEDIATE("------Process32FirstW 失败 ");
+			return false;
+		}
+
+		bool found = false;
+		do {
+			if (std::wstring(pe32.szExeFile) == processName) {
+				found = true;
+				break;
+			}
+		} while (Process32NextW(hSnapshot, &pe32));
+
+		CloseHandle(hSnapshot);
+		return found;
+	}
+	catch (const std::exception& e) {
+		LOG_EXCEPTION_WITH_STACK(e);
+		//LOG_IMMEDIATE("NarakaStateMonitor::OnClientStarted():" + std::string(e.what()));
+		return false;
+	}
+	catch (...) {
+		LOG_IMMEDIATE("common.cpp::IsProcessRunning::未知错误");
+		return false;
+	}
 }
 
 bool is_file_exists_and_not_empty(const std::string& filename) {
@@ -1034,19 +1085,46 @@ std::string UrlEncode(const std::string& value) {
 
 	return escaped.str();
 }
+int string_to_int(const std::string& str) {
+	if (str.empty()) {
+		throw std::invalid_argument("字符串为空");
+	}
 
+	try {
+		size_t pos;
+		int value = std::stoi(str, &pos);
+		// 检查是否整个字符串都被转换（防止 "123abc" 被部分转换）
+		if (pos != str.length()) {
+			LOG_ERROR("字符串包含非数字字符");
+
+		}
+		return value;
+	}
+	catch (const std::exception& e) {
+		LOG_ERROR("string_to_int 出错了");
+	}
+}
 // 辅助函数：查找 map，找不到则返回 key 本身
 const std::string& mapLookupOrDefault(const std::map<std::string, std::string>& m, const std::string& key) {
 	auto it = m.find(key);
 	return (it != m.end()) ? it->second : key;
 }
 
+
 const std::string mapLookupOrDefault(const std::map<int, std::string>& m, int key) {
 	auto it = m.find(key);
 	return (it != m.end()) ? it->second : std::to_string(key);
 }
 
-
+const int mapLookupOrDefault(const std::map<std::string, int>& m, std::string key) {
+	auto it = m.find(key);
+	if (it != m.end()) {
+		return it->second;
+	}
+	else {
+		return string_to_int(key);
+	}
+}
 
 // 将单个 Unicode 码点转为 \uXXXX 格式
 std::string codepointToUnicodeEscape(uint32_t codepoint) {

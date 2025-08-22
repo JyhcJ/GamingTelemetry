@@ -118,51 +118,62 @@ public:
 		return false;
 	}
 	bool readPlayerNameFromFileDESC(const std::string& filePath, std::string& playerName) {
-		const std::string key = "player_name,";
-		const size_t chunkSize = 4096; // 每次读取的块大小（可根据文件大小调整）
-		char buffer[chunkSize];
+		try {
+			const std::string key = "player_name,";
+			const size_t chunkSize = 4096; // 每次读取的块大小（可根据文件大小调整）
+			char buffer[chunkSize];
 
-		std::ifstream file(filePath, std::ios::binary | std::ios::ate); // 直接定位到文件末尾
-		if (!file.is_open()) {
-			std::cerr << "Failed to open player name file: " << filePath << std::endl;
-			return false;
-		}
-
-		std::streampos fileSize = file.tellg();
-		std::streampos readPos = std::min<std::streampos>(fileSize, chunkSize * 10); // 最多向前检查10个块
-
-		while (readPos > 0) {
-			// 计算实际读取位置和大小
-			size_t thisChunkSize = static_cast<size_t>(std::min<std::streampos>(chunkSize, readPos));
-			readPos -= thisChunkSize;
-			file.seekg(readPos, std::ios::beg);
-			file.read(buffer, thisChunkSize);
-
-			// 反向搜索关键字段
-			std::string chunk(buffer, thisChunkSize);
-			size_t pos = chunk.rfind(key); // 反向查找
-
-			if (pos != std::string::npos) {
-				size_t valueStart = pos + key.length();
-				size_t lineEnd = chunk.find(';', valueStart);
-				if (lineEnd == std::string::npos) {
-					lineEnd = chunk.length();
-				}
-
-				// 提取玩家名（处理可能的换行符）
-				playerName = chunk.substr(valueStart, lineEnd - valueStart);
-				playerName.erase(std::remove(playerName.begin(), playerName.end(), '\r'), playerName.end());
-				playerName.erase(std::remove(playerName.begin(), playerName.end(), '\n'), playerName.end());
-
-				return true;
+			std::ifstream file(filePath, std::ios::binary | std::ios::ate); // 直接定位到文件末尾
+			if (!file.is_open()) {
+				std::cerr << "Failed to open player name file: " << filePath << std::endl;
+				return false;
 			}
 
-			// 如果没找到且已经检查完文件开头，则退出
-			if (readPos <= 0) break;
-		}
+			std::streampos fileSize = file.tellg();
+			std::streampos readPos = std::min<std::streampos>(fileSize, chunkSize * 10); // 最多向前检查10个块
 
-		LOG_IMMEDIATE_DEBUG("NARAKA未在文件中找到 player_name");
-		return false;
+			while (readPos > 0) {
+				// 计算实际读取位置和大小
+				size_t thisChunkSize = static_cast<size_t>(std::min<std::streampos>(chunkSize, readPos));
+				readPos -= thisChunkSize;
+				file.seekg(readPos, std::ios::beg);
+				file.read(buffer, thisChunkSize);
+
+				// 反向搜索关键字段
+				std::string chunk(buffer, thisChunkSize);
+				size_t pos = chunk.rfind(key); // 反向查找
+
+				if (pos != std::string::npos) {
+					size_t valueStart = pos + key.length();
+					size_t lineEnd = chunk.find(';', valueStart);
+					if (lineEnd == std::string::npos) {
+						lineEnd = chunk.length();
+					}
+
+					// 提取玩家名（处理可能的换行符）
+					playerName = chunk.substr(valueStart, lineEnd - valueStart);
+					playerName.erase(std::remove(playerName.begin(), playerName.end(), '\r'), playerName.end());
+					playerName.erase(std::remove(playerName.begin(), playerName.end(), '\n'), playerName.end());
+
+					return true;
+				}
+
+				// 如果没找到且已经检查完文件开头，则退出
+				if (readPos <= 0) break;
+			}
+
+			LOG_IMMEDIATE_DEBUG("NARAKA未在文件中找到 player_name");
+			return false;
+		}
+		catch (const std::exception& e) {
+			LOG_EXCEPTION_WITH_STACK(e);
+			//LOG_IMMEDIATE("NarakaStateMonitor::OnClientStarted():" + std::string(e.what()));
+			return false;
+		}
+		catch (...) {
+			LOG_IMMEDIATE("Naraka.h::readPlayerNameFromFileDESC:未知错误");
+			return false;
+		}
 	}
 	const std::string& getPlayerName() const {
 		return playerName;

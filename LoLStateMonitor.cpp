@@ -87,7 +87,7 @@ void LoLStateMonitor::OnMatchEnded() {
 
 	Game_Before gb;
 	// ªÒ»° data
-	gb.before_main("END");
+	gb.before_main("END", GenerateUUID());
 
 	//gb.getAndSendInfo("END");
 

@@ -91,38 +91,49 @@ void _sendHttp_cs2(std::string type, nlohmann::json data) {
 }
 // 网络初始化
 bool InitNetwork() {
-	WSADATA wsaData;
-	if (WSAStartup(MAKEWORD(2, 2), &wsaData) != 0) {
-		LOG_IMMEDIATE_ERROR("WSAStartup failed");
-		return false;
+	try {
+		WSADATA wsaData;
+		if (WSAStartup(MAKEWORD(2, 2), &wsaData) != 0) {
+			LOG_IMMEDIATE_ERROR("WSAStartup failed");
+			return false;
 
+		}
+
+		g_serverSocket = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
+		if (g_serverSocket == INVALID_SOCKET) {
+			LOG_IMMEDIATE_ERROR("Socket creation failed");
+			return false;
+		}
+
+		sockaddr_in serverAddr{};
+		serverAddr.sin_family = AF_INET;
+		serverAddr.sin_addr.s_addr = INADDR_ANY;
+		serverAddr.sin_port = htons(GSI_PORT);
+
+		if (bind(g_serverSocket, (sockaddr*)&serverAddr, sizeof(serverAddr)) == SOCKET_ERROR) {
+			LOG_IMMEDIATE_ERROR("Bind failed");
+			closesocket(g_serverSocket);
+			return false;
+		}
+
+		if (listen(g_serverSocket, SOMAXCONN) == SOCKET_ERROR) {
+			LOG_IMMEDIATE_ERROR("Listen failed");
+			closesocket(g_serverSocket);
+			return false;
+		}
+
+		LOG_IMMEDIATE("CSGO:GSI server started on port " + std::to_string(GSI_PORT));
+		return true;
 	}
-
-	g_serverSocket = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
-	if (g_serverSocket == INVALID_SOCKET) {
-		LOG_IMMEDIATE_ERROR("Socket creation failed");
+	catch (const std::exception& e) {
+		LOG_EXCEPTION_WITH_STACK(e);
+		//LOG_IMMEDIATE("NarakaStateMonitor::OnClientStarted():" + std::string(e.what()));
 		return false;
 	}
-
-	sockaddr_in serverAddr{};
-	serverAddr.sin_family = AF_INET;
-	serverAddr.sin_addr.s_addr = INADDR_ANY;
-	serverAddr.sin_port = htons(GSI_PORT);
-
-	if (bind(g_serverSocket, (sockaddr*)&serverAddr, sizeof(serverAddr)) == SOCKET_ERROR) {
-		LOG_IMMEDIATE_ERROR("Bind failed");
-		closesocket(g_serverSocket);
+	catch (...) {
+		LOG_IMMEDIATE("cs2.cpp::InitNetwork::未知错误");
 		return false;
 	}
-
-	if (listen(g_serverSocket, SOMAXCONN) == SOCKET_ERROR) {
-		LOG_IMMEDIATE_ERROR("Listen failed");
-		closesocket(g_serverSocket);
-		return false;
-	}
-
-	LOG_IMMEDIATE("CSGO:GSI server started on port " + std::to_string(GSI_PORT));
-	return true;
 }
 
 // 状态保存/加载
@@ -518,61 +529,73 @@ std::string getCS2_location() {
 }
 
 bool CreateGameStateIntegrationFile(const std::string& directoryPath) {
-	// 构建完整文件路径
-	std::string filePath = directoryPath + "\\gamestate_integration_custom123456.cfg";
+	try {
+		// 构建完整文件路径
+		std::string filePath = directoryPath + "\\gamestate_integration_custom123456.cfg";
 
-	// 检查文件是否已存在
-	std::ifstream testFile(filePath);
-	if (testFile.good()) {
-		LOG_IMMEDIATE("CSGO:创建配置文件: 文件已存在不进行任何操作");
+		// 检查文件是否已存在
+		std::ifstream testFile(filePath);
+		if (testFile.good()) {
+			LOG_IMMEDIATE("CSGO:创建配置文件: 文件已存在不进行任何操作");
+			testFile.close();
+			return false;
+		}
 		testFile.close();
-		return false;
-	}
-	testFile.close();
 
-	// 创建目录（如果不存在）
-	if (CreateDirectoryA(directoryPath.c_str(), NULL) ||
-		GetLastError() == ERROR_ALREADY_EXISTS) {
+		// 创建目录（如果不存在）
+		if (CreateDirectoryA(directoryPath.c_str(), NULL) ||
+			GetLastError() == ERROR_ALREADY_EXISTS) {
 
-		// 创建并写入文件
-		std::ofstream outFile(filePath);
-		if (!outFile.is_open()) {
-			LOG_IMMEDIATE("CSGO:无法创建文件");
+			// 创建并写入文件
+			std::ofstream outFile(filePath);
+			if (!outFile.is_open()) {
+				LOG_IMMEDIATE("CSGO:无法创建文件");
+				return false;
+			}
+
+			// 写入文件内容
+			outFile << "\"Console Sample v.1\"\n";
+			outFile << "{\n";
+			outFile << " \"uri\" \"http://127.0.0.1:3000\"\n";
+			outFile << " \"timeout\" \"5.0\"\n";
+			outFile << " \"buffer\"  \"0.1\"\n";
+			outFile << " \"throttle\" \"0.5\"\n";
+			outFile << " \"heartbeat\" \"60.0\"\n";
+			outFile << " \"output\"\n";
+			outFile << " {\n";
+			outFile << "   \"precision_time\" \"3\"\n";
+			outFile << "   \"precision_position\" \"1\"\n";
+			outFile << "   \"precision_vector\" \"3\"\n";
+			outFile << " }\n";
+			outFile << " \"data\"\n";
+			outFile << " {\n";
+			outFile << "   \"provider\"            \"1\"      // general info about client being listened to: game name, appid, client steamid, etc.\n";
+			outFile << "   \"map\"                 \"1\"      // map, gamemode, and current match phase ('warmup', 'intermission', 'gameover', 'live') and current score\n";
+			outFile << "   \"round\"               \"1\"      // round phase ('freezetime', 'over', 'live'), bomb state ('planted', 'exploded', 'defused'), and round winner (if any)\n";
+			outFile << "   \"player_id\"           \"1\"      // player name, clan tag, observer slot (ie key to press to observe this player) and team\n";
+			outFile << "   \"player_state\"        \"1\"      // player state for this current round such as health, armor, kills this round, etc.\n";
+			outFile << "   \"player_match_stats\"  \"1\"      // player stats this match such as kill, assists, score, deaths and MVPs\n";
+			outFile << " }\n";
+			outFile << "}\n";
+
+			outFile.close();
+			LOG_IMMEDIATE("csgo配置文件创建成功:" + filePath);
+			return true;
+		}
+		else {
+			LOG_IMMEDIATE("csgo配置文件:无法创建目录:" + directoryPath);
 			return false;
 		}
 
-		// 写入文件内容
-		outFile << "\"Console Sample v.1\"\n";
-		outFile << "{\n";
-		outFile << " \"uri\" \"http://127.0.0.1:3000\"\n";
-		outFile << " \"timeout\" \"5.0\"\n";
-		outFile << " \"buffer\"  \"0.1\"\n";
-		outFile << " \"throttle\" \"0.5\"\n";
-		outFile << " \"heartbeat\" \"60.0\"\n";
-		outFile << " \"output\"\n";
-		outFile << " {\n";
-		outFile << "   \"precision_time\" \"3\"\n";
-		outFile << "   \"precision_position\" \"1\"\n";
-		outFile << "   \"precision_vector\" \"3\"\n";
-		outFile << " }\n";
-		outFile << " \"data\"\n";
-		outFile << " {\n";
-		outFile << "   \"provider\"            \"1\"      // general info about client being listened to: game name, appid, client steamid, etc.\n";
-		outFile << "   \"map\"                 \"1\"      // map, gamemode, and current match phase ('warmup', 'intermission', 'gameover', 'live') and current score\n";
-		outFile << "   \"round\"               \"1\"      // round phase ('freezetime', 'over', 'live'), bomb state ('planted', 'exploded', 'defused'), and round winner (if any)\n";
-		outFile << "   \"player_id\"           \"1\"      // player name, clan tag, observer slot (ie key to press to observe this player) and team\n";
-		outFile << "   \"player_state\"        \"1\"      // player state for this current round such as health, armor, kills this round, etc.\n";
-		outFile << "   \"player_match_stats\"  \"1\"      // player stats this match such as kill, assists, score, deaths and MVPs\n";
-		outFile << " }\n";
-		outFile << "}\n";
-
-		outFile.close();
-		LOG_IMMEDIATE("csgo配置文件创建成功:" + filePath);
-		return true;
 	}
-	else {
-		LOG_IMMEDIATE("csgo配置文件:无法创建目录:" + directoryPath);
-		return false;
+	catch (const std::exception& e) {
+		LOG_EXCEPTION_WITH_STACK(e);
+		//LOG_IMMEDIATE("NarakaStateMonitor::OnClientStarted():" + std::string(e.what()));
+		return FALSE;
+	}
+	catch (...) {
+		LOG_IMMEDIATE("cs2.cpp::CreateGameStateIntegrationFile::未知错误");
+		return FALSE;
 	}
 }
 
@@ -591,9 +614,19 @@ BOOL cs2Monitor() {
 		if (!InitNetwork()) return FALSE;
 		std::thread(GSIServer).detach();
 	}
+	//catch (const std::exception& e) {
+	//	LOG_IMMEDIATE_ERROR(std::string("Exception in DLL_PROCESS_ATTACH: ") + e.what());
+	//	return FALSE;
+	//}
 	catch (const std::exception& e) {
-		LOG_IMMEDIATE_ERROR(std::string("Exception in DLL_PROCESS_ATTACH: ") + e.what());
+		LOG_EXCEPTION_WITH_STACK(e);
+		//LOG_IMMEDIATE("NarakaStateMonitor::OnClientStarted():" + std::string(e.what()));
 		return FALSE;
 	}
+	catch (...) {
+		LOG_IMMEDIATE("cs2.cpp::cs2Monitor:未知错误");
+		return FALSE;
+	}
+
 	return TRUE;
 }

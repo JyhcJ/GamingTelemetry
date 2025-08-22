@@ -142,13 +142,15 @@ private:
 		return value;
 	}
 
+
+
 	std::string getUserPass(const std::wstring& command);
 
 
 public:
 	bool getParam();
-	void getAndSendInfo(std::string sendType);
+	void getAndSendInfo(std::string sendType ,std::string uuid = "");
 
-	bool before_main(std::string sendType);
+	bool before_main(std::string sendType, std::string uuid = "");
 
 };

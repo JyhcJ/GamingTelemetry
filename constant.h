@@ -85,7 +85,34 @@ static std::map<std::string, std::string> LOL_gameModMap = {
 	{"BRAWL", "GOD_TREE"},
 	//{"NONE","NULL"},
 	{"NONE","MATCH"},
-	{"",""},
+	{"ARAM","SUPER_SMASH_BROTHERS"},
+	{"TFT","YUNDING"},
+	{"NORMAL_TFT","YUNDING_PIPEI"},
+	{"RANKED_TFT","YUNDING_PAIWEI"},
+	{"RANKED_TFT_DOUBLE_UP","YUNDING_SRPAIWEI"},
+	{"RANKED_TFT_TURBO","KUANGBAOMOSHI"},
+	{"",""}
+
+};
+
+static std::map<std::string, int> LOL_gameMod2RankIndexMap = {
+	{"NORMAL", 6},
+	{"RANKED_SOLO_5x5", 2},
+	{"RANKED_FLEX_SR", 1},
+	{"ARAM_UNRANKED_5x5", 6},
+	{"URF", 6},
+	{"ARURF", 6},
+	{"NEXUS_BLITZ", 6},
+	{"BRAWL", 6},
+	//{"NONE","NULL"},
+	{"NONE",6},
+	{"ARAM",6},
+	{"TFT",6},
+	{"NORMAL_TFT",6},
+	{"RANKED_TFT",3},
+	{"RANKED_TFT_DOUBLE_UP",4},
+	{"RANKED_TFT_TURBO",5},
+	{"",6}
 
 };
 

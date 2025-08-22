@@ -212,6 +212,7 @@ int main_delta() {
 							if (token_expired) {
 								LOG_INFO("WG --> token过期,更新token");
 								refreshToken(gameName);
+								token_expired = false;
 
 							}
 							if (has_new_battle_record) {
@@ -242,7 +243,18 @@ int main_delta() {
 								refreshToken(gameName);
 							}
 							std::this_thread::sleep_for(std::chrono::seconds(30));
-							nlohmann::json p_header = nlohmann::json::parse(get_g_wgHeader());
+							nlohmann::json p_header;
+							try{
+								p_header = nlohmann::json::parse(get_g_wgHeader());
+							}
+							catch (const std::exception& e) {
+								LOG_EXCEPTION_WITH_STACK(e);
+							
+							}
+							catch (...) {
+								LOG_IMMEDIATE("delta.cpp::main_delta::未知错误");
+							}
+							//nlohmann::json p_header = nlohmann::json::parse(get_g_wgHeader());
 							nlohmann::json p_responseJson;
 							if (!p_header.empty())
 							{
@@ -287,6 +299,7 @@ int main_delta() {
 
 									if (gbkStr.find("登录信息过期") != std::string::npos ||
 										gbkStr.find("\"error_code\":8000102") != std::string::npos) {
+										LOG_IMMEDIATE("delta::过期的token?" + gbkStr);
 										token_expired = true;
 										cv.notify_one();
 									}
@@ -315,7 +328,8 @@ int main_delta() {
 										p_body.dump()
 									);
 									//LOG_IMMEDIATE(UTF8ToGBK(response_json));
-									p_responseJson = nlohmann::json::parse(UTF8ToGBK(response_json));
+						
+									p_responseJson = nlohmann::json::parse(SecondEncoding2UTF8(response_json, realUTF8));
 									int sol_rank = getNestedValue <int>(p_responseJson, { "season","stats","ranklevel" }, -1);
 									int tdm_rank = getNestedValue <int>(p_responseJson, { "season","stats","tdmRanklevel" }, -1);
 									int sol_count = getNestedValue <int>(p_responseJson, { "season","stats","solTotal" }, -1);
@@ -372,7 +386,8 @@ int main_delta() {
 										p_body.dump()
 									);
 									LOG_IMMEDIATE(UTF8ToGBK(response_json));
-									p_responseJson = nlohmann::json::parse(UTF8ToGBK(response_json));
+
+									p_responseJson = nlohmann::json::parse(SecondEncoding2UTF8(response_json, realUTF8));
 
 									nlohmann::json sendJson;
 									uint64_t ticketNum[3] = { 0,0,0 };
@@ -497,7 +512,7 @@ int main_delta() {
 										if (teamId == getNestedValue <int>(player, { "teamId" }, -1)) {
 											std::string name = getNestedValue<std::string>(player, { "name" }, "error");
 											std::string nameUTF8;
-											LOG_INFO(SecondEncoding2UTF8(name, nameUTF8));
+											LOG_IMMEDIATE(SecondEncoding2UTF8(name, nameUTF8));
 											member["id"] = nameUTF8;
 											member["role"] = "other";
 											sendJson["data"]["member"].push_back(member);

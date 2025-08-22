@@ -127,6 +127,7 @@ int main() {
 
 	try {
 
+
 		main_delta();
 
 		//启动绝地求生监控
@@ -163,7 +164,8 @@ int main() {
 		}
 	}
 	catch (const std::exception& e) {
-		LOG_ERROR(e.what());
+		LOG_EXCEPTION_WITH_STACK(e);
+		//LOG_ERROR(e.what());
 		return 1;
 	}
 	catch (...) {

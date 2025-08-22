@@ -1,8 +1,10 @@
-#include "pch.h"
+ï»¿#include "pch.h"
 #include "lol_before.h"
 #include "constant.h"
 #include "lol.h"
 #include <unordered_set>
+#include "common.h"
+#include "nloJson.h"
 
 extern std::string g_hostName;
 extern bool is_lol_running;
@@ -15,32 +17,48 @@ nlohmann::json g_infoBefore;
 std::unordered_set<uint64_t> g_lobbySummonerIds;
 std::mutex g_mtx;
 std::mutex g_m;
+
+
+std::mutex g_mtx_cv;
+std::condition_variable g_cv;
+
 static std::map<size_t, size_t> HISTORY_GAMES;//gameid _ userid
 
 bool Game_Before::getParam() {
-	std::lock_guard<std::mutex> lock(g_m); // ×Ô¶¯¼ÓËø/½âËø
-	std::string str = getUserPass(_AUTHCOM);
-	if (str.size() < 100)
-	{
-		LOG_IMMEDIATE("¿Í»§¶ËÎ´Æô¶¯? µÈ´ı¿Í»§¶ËÍêÈ«Æô¶¯");
+	try {
+		std::lock_guard<std::mutex> lock(g_m); // è‡ªåŠ¨åŠ é”/è§£é”
+		std::string str = getUserPass(_AUTHCOM);
+		if (str.size() < 100)
+		{
+			LOG_IMMEDIATE("å®¢æˆ·ç«¯æœªå¯åŠ¨? ç­‰å¾…å®¢æˆ·ç«¯å®Œå…¨å¯åŠ¨");
+			return false;
+		}
+		app_port = extractParamValue(str, _APPPORT);
+		auth_token = extractParamValue(str, _AUTHTOKEN);
+		rso_platform_id = extractParamValue(str, _RSOPLATFORM);
+		rso_original_platform_id = extractParamValue(str, _RSO_ORIPLATFORM);
+
+		if (rso_original_platform_id == "") {
+			rso_original_platform_id = extractParamValue(str, _RSOPLATFORMID);
+		}
+		//std::cout << "auth_token: " << auth_token << std::endl;
+		//std::cout << "app_port: " << app_port << std::endl;
+		url = "https://riot:" + auth_token + "@127.0.0.1:" + app_port;
+
+		return true;
+	}
+	catch (const std::exception& e) {
+		LOG_EXCEPTION_WITH_STACK(e);
+		//LOG_IMMEDIATE("NarakaStateMonitor::OnClientStarted():" + std::string(e.what()));
 		return false;
 	}
-	app_port = extractParamValue(str, _APPPORT);
-	auth_token = extractParamValue(str, _AUTHTOKEN);
-	rso_platform_id = extractParamValue(str, _RSOPLATFORM);
-	rso_original_platform_id = extractParamValue(str, _RSO_ORIPLATFORM);
-
-	if (rso_original_platform_id == "") {
-		rso_original_platform_id = extractParamValue(str, _RSOPLATFORMID);
+	catch (...) {
+		LOG_IMMEDIATE("lol_before.cpp::getParam:æœªçŸ¥é”™è¯¯");
+		return false;
 	}
-	//std::cout << "auth_token: " << auth_token << std::endl;
-	//std::cout << "app_port: " << app_port << std::endl;
-	url = "https://riot:" + auth_token + "@127.0.0.1:" + app_port;
-
-	return true;
 }
 
-// ĞèÒªÏÈget ÑéÖ¤·â×°
+// éœ€è¦å…ˆget éªŒè¯å°è£…
 bool Game_Before::httpAuthSend(std::string endUrl, nlohmann::json& responseJson, std::string param) {
 	std::string auth = "riot:" + auth_token;
 	//std::string auth_header = "Authorization: Basic " + base64_encode(auth);
@@ -65,18 +83,18 @@ bool Game_Before::httpAuthSend(std::string endUrl, nlohmann::json& responseJson,
 	}
 	catch (const nlohmann::json::parse_error& e) {
 		std::string error = e.what();
-		LOG_IMMEDIATE_DEBUG("p_responseJson ½âÎöÊ§°Ü: " + error);
+		LOG_IMMEDIATE_DEBUG("p_responseJson è§£æå¤±è´¥: " + error);
 		LOG_IMMEDIATE_DEBUG("p_responseJson : " + p_responseJson);
 	}
 	catch (const std::exception& e) {
 		LOG_IMMEDIATE_ERROR("httpAuthSend:::exception");
 		LOG_IMMEDIATE_ERROR(e.what());
 	}
-	catch (...) {  // ²¶»ñÆäËûËùÓĞÒì³£
+	catch (...) {  // æ•è·å…¶ä»–æ‰€æœ‰å¼‚å¸¸
 		LOG_IMMEDIATE_ERROR("httpAuthSend :::Unknown exception occurred");
 	}
 
-	// ¼ì²é×Ö¶ÎÊÇ·ñ´æÔÚ
+	// æ£€æŸ¥å­—æ®µæ˜¯å¦å­˜åœ¨
 	if (p_responseJson.contains("errorCode")) {
 		//LOG_IMMEDIATE_DEBUG(allUrl + "::errorCode::" + p_responseJson["errorCode"].dump());
 		if (p_responseJson.contains("message")) {
@@ -91,285 +109,469 @@ bool Game_Before::httpAuthSend(std::string endUrl, nlohmann::json& responseJson,
 
 
 }
-// ÓÎÏ·ÖĞ:SAN_SHA_SHU = ÈıÉ±Êı, SI_SHA_SHU = ËÄÉ±Êı, WU_SHA_SHU = ÎåÉ±Êı, CHAO_SHEN_SHU = ³¬ÉñÊı,
-// ÓÎÏ·½áÊøÇ°/ºó:RUN = ¿Í»§¶Ë´ò¿ª, KILL = ¿Í»§¶Ë¹Ø±Õ / END = ÓÎÏ·½áÊø
-void Game_Before::getAndSendInfo(std::string sendType) {
-
-	if (sendType == "RUN" || sendType == "KILL") {
-		nlohmann::json	jsonbody;
-		jsonbody[sendType] = sendType;
-		_sendHttp_LOL(jsonbody);
-		return;
-	}
-
-	//-------------------self
-	nlohmann::json summonerData;
-	uint64_t myAccountId;
-	if (httpAuthSend("/lol-summoner/v1/current-summoner", summonerData))
-	{
-		if (summonerData.contains("accountId")) {
-			myAccountId = summonerData["accountId"];
+// æ¸¸æˆä¸­:SAN_SHA_SHU = ä¸‰æ€æ•°, SI_SHA_SHU = å››æ€æ•°, WU_SHA_SHU = äº”æ€æ•°, CHAO_SHEN_SHU = è¶…ç¥æ•°,
+// æ¸¸æˆç»“æŸå‰/å:RUN = å®¢æˆ·ç«¯æ‰“å¼€, KILL = å®¢æˆ·ç«¯å…³é—­ / END = æ¸¸æˆç»“æŸ
+void Game_Before::getAndSendInfo(std::string sendType, std::string uuid) {
+	try {
+		if (sendType == "RUN" || sendType == "KILL") {
+			nlohmann::json	jsonbody;
+			jsonbody[sendType] = sendType;
+			_sendHttp_LOL(jsonbody);
+			return;
 		}
 
-		//myAccountId = summonerData["accountId"].get<uint64_t>();
-	}
 
-
-
-
-	nlohmann::json lobbyData;
-	size_t teamSize = 0;
-
-	if (httpAuthSend("/lol-lobby/v2/lobby", lobbyData))
-	{
-		std::unordered_set<uint64_t> lobbySummonerIds;
-		//LOG_IMMEDIATE(lobbyData);
-		teamSize = lobbyData["members"].size();
-		//myAccountId = summonerData["accountId"].get<uint64_t>();
-
-		//0 2 3 4 5
-		if (teamSize >= 1) {
-			for (const auto& member : lobbyData["members"]) {
-				lobbySummonerIds.insert(member["summonerId"].get<uint64_t>());
+		//-------------------self
+		nlohmann::json summonerData;
+		uint64_t myAccountId;
+		std::string puuid;
+		if (httpAuthSend("/lol-summoner/v1/current-summoner", summonerData))
+		{
+			if (summonerData.contains("accountId")) {
+				myAccountId = summonerData["accountId"];
+				puuid = summonerData["puuid"];
 			}
-			g_mtx.lock();
-			g_lobbySummonerIds = lobbySummonerIds;
-			g_mtx.unlock();
-			//std::cout << "Summoner IDs:" << std::endl;
-			LOG_IMMEDIATE("Summoner IDs:");
-			for (uint64_t id : lobbySummonerIds) {
-				LOG_IMMEDIATE(std::to_string(id));
-				//std::cout << "- " << id << std::endl;
+
+			//myAccountId = summonerData["accountId"].get<uint64_t>();
+		}
+
+
+
+
+		nlohmann::json lobbyData;
+		size_t teamSize = 0;
+
+		if (httpAuthSend("/lol-lobby/v2/lobby", lobbyData))
+		{
+			std::unordered_set<uint64_t> lobbySummonerIds;
+			//LOG_IMMEDIATE(lobbyData);
+			teamSize = lobbyData["members"].size();
+			//myAccountId = summonerData["accountId"].get<uint64_t>();
+
+			//0 2 3 4 5
+			if (teamSize >= 1) {
+				for (const auto& member : lobbyData["members"]) {
+					lobbySummonerIds.insert(member["summonerId"].get<uint64_t>());
+				}
+				g_mtx.lock();
+				g_lobbySummonerIds = lobbySummonerIds;
+				g_mtx.unlock();
+				//std::cout << "Summoner IDs:" << std::endl;
+				LOG_IMMEDIATE("Summoner IDs:");
+				for (uint64_t id : lobbySummonerIds) {
+					LOG_IMMEDIATE(std::to_string(id));
+					//std::cout << "- " << id << std::endl;
+				}
+			}
+			else {
+				teamSize = 1;
 			}
 		}
-		else {
-			teamSize = 1;
-		}
-	}
 
-	//-------------------gameID,gamemode,phase(ÓÎÏ·½øĞĞÊ±,»òÕß×¼±¸,½áËãÊ±²ÅÓĞÊı¾İ)
-	nlohmann::json sessionData;
-	size_t gameId = 0;
-	std::string	game_mode = "init";
-	std::string phase = "init";
-	if (httpAuthSend("/lol-gameflow/v1/session", sessionData))
-	{
-		gameId = sessionData["gameData"]["gameId"]; //´Ë´¦ ÊÇ sj¶Ô¾ÖÖĞµÄgameid
+
+
+		// -------------------ranked data
+		nlohmann::json	ranksData;
+		std::string	highestTierSR; //bobao
+		std::string	ranks[7];
+		std::string judeRank;
+		if (httpAuthSend("/lol-ranked/v1/current-ranked-stats", ranksData))
+		{
+			//highestTierSR = ranksData["highestRankedEntrySR"]["highestTier"];
+			highestTierSR = getNestedValue<std::string>(ranksData, { "highestRankedEntrySR","highestTier" }, "error");
+
+			ranks[0] = "error";
+			ranks[1] = getNestedValue<std::string>(ranksData, { "queueMap","RANKED_FLEX_SR","tier" }, "error");
+			ranks[2] = getNestedValue<std::string>(ranksData, { "queueMap","RANKED_SOLO_5x5","tier" }, "error");
+			ranks[3] = getNestedValue<std::string>(ranksData, { "queueMap","RANKED_TFT","tier" }, "error");
+			ranks[4] = getNestedValue<std::string>(ranksData, { "queueMap","RANKED_TFT_DOUBLE_UP","tier" }, "error");
+			ranks[5] = getNestedValue<std::string>(ranksData, { "queueMap","RANKED_TFT_TURBO","tier" }, "error");
+			ranks[6] = "";
+
+
+
+
+		}
+
+		// -------------------æ¯”èµ›æ•°æ® åˆ†é¡µ
+
+		nlohmann::json	matchesData;
+		std::string		endOfGameResult;
+		uint64_t		participantId_u64;
+		uint64_t matchAccountId_u64;
+		uint64_t matchGameId_u64;
+
+		nlohmann::json jsonBody;
+		nlohmann::json data;
+
+
+		bool last_is_end = false;
+
+		//-------------------gameID,gamemode,phase(æ¸¸æˆè¿›è¡Œæ—¶,æˆ–è€…å‡†å¤‡,ç»“ç®—æ—¶æ‰æœ‰æ•°æ®)
+		nlohmann::json sessionData;
+		size_t gameId = 0;
+		std::string	game_mode = "init";
+		std::string phase = "init";
+		std::string type = "init";
+		if (httpAuthSend("/lol-gameflow/v1/session", sessionData))
+		{
+			gameId = sessionData["gameData"]["gameId"]; //æ­¤å¤„ æ˜¯ sjå¯¹å±€ä¸­çš„gameid
+			game_mode = sessionData["gameData"]["queue"]["type"];
+			phase = sessionData["phase"];
+			type = sessionData["gameData"]["queue"]["gameMode"];
+		}
+
 		if (gameId != 0) {
 			HISTORY_GAMES.emplace(gameId, myAccountId);
 		}
-		game_mode = sessionData["gameData"]["queue"]["type"];
-		phase = sessionData["phase"];
-	}
 
+		size_t gameId_tft;
+		if (type == "TFT") {
+			if (sendType == "END") {
+				/*		std::unique_lock<std::mutex> lock(g_mtx_cv);
+						auto timeout = std::chrono::seconds(60 * 20);
 
-	// -------------------±ÈÈüÊı¾İ ·ÖÒ³
+						g_cv.wait_for(lock, timeout, [this,puuid, &matchesData] {*/
+				LOG_INFO("ç­‰å¾…æ–°çš„LOLTFTå¯¹å±€å‡ºç°");
 
-	nlohmann::json	matchesData;
-	std::string		endOfGameResult;
-	uint64_t		participantId_u64;
-	uint64_t matchAccountId_u64;
-	uint64_t matchGameId_u64;
+				while (true) {
+					if (httpAuthSend("/lol-match-history/v1/products/tft/" + puuid + "/matches", matchesData)) {
+						std::vector<PathItem> path = {
+						PathItem::makeKey("games"),
+						PathItem::makeIndex(0),
+						PathItem::makeKey("json"),
+						PathItem::makeKey("gameId")
+						};
+						size_t p_gameId_tft = getNestedValuePlus<size_t>(matchesData, path, -1);
 
-	nlohmann::json jsonBody;
-	nlohmann::json data;
-
-
-	bool last_is_end = false;
-	//if (sendType == "END") {
-		//std::this_thread::sleep_for(std::chrono::seconds(5));
-	if (httpAuthSend("/lol-match-history/v1/products/lol/current-summoner/matches", matchesData, "?begIndex=0&endIndex=0"))
-	{
-		//LOG_IMMEDIATE(matchesData.dump());
-		matchAccountId_u64 = matchesData["accountId"].get<uint64_t>();
-		data["member"] = nlohmann::json::array();
-
-		//jsonBody
-		for (const auto& game : matchesData["games"]["games"]) {
-			matchGameId_u64 = game["gameId"];
-			if (HISTORY_GAMES[matchGameId_u64] == myAccountId && "GameComplete" == game["endOfGameResult"])
-			{
-				for (const auto& participantIdentitie : game["participantIdentities"]) {
-					nlohmann::json member;
-					uint64_t id;
-					id = participantIdentitie["player"]["summonerId"].get<uint64_t>();
-					member["id"] = std::to_string(id);
-					member["role"] = "other";
-					//ÕâÀïÓĞÎÊÌâ ½Ó¿ÚÖ»ÄÜ²éÑ¯µ½×Ô¼ºµÄĞÅÏ¢==========
-		/*			bool isContains = (std::find(lobbySummonerIds.begin(), lobbySummonerIds.end(), member["id"]) != lobbySummonerIds.end());
-					if (isContains)
-					{
-						member["role"] = "team";
-					}*/
-					//==========================================
-					// ¼ì²é participantId ÊÇ·ñÆ¥Åä
-					if (id == matchAccountId_u64) {
-						participantId_u64 = participantIdentitie["participantId"].get<uint64_t>();
-						member["role"] = "self";
-						data["member"].push_back(member);
-						//continue;
-					}
-					if (g_lobbySummonerIds.size() > 1)
-					{
-						for (uint64_t lobby : g_lobbySummonerIds) {
-							if (lobby == id) {
-								continue;
+						if (HISTORY_GAMES[p_gameId_tft] != 0) {
+							path = {
+							PathItem::makeKey("games"),
+							PathItem::makeIndex(0),
+							PathItem::makeKey("json"),
+							PathItem::makeKey("game_datetime") };
+							std::string game_datetime = getNestedValuePlus<std::string>(matchesData, path, "-1");
+							//	ç»“æŸæ—¶é—´åœ¨25så†…
+								// 1. å°†å­—ç¬¦ä¸²æ—¶é—´æˆ³è½¬æ¢ä¸º long long (æ¯«ç§’)
+							long long timestamp_ms;
+							try {
+								timestamp_ms = std::stoll(game_datetime);
 							}
-							else {
-								member["id"] = std::to_string(lobby);
-								member["role"] = "team";
-								data["member"].push_back(member);
+							catch (const std::exception& e) {
+								std::cerr << "Error converting string to number: " << e.what() << std::endl;
+							}
+
+							auto now = std::chrono::system_clock::now();
+
+							auto now_ms_duration = std::chrono::time_point_cast<std::chrono::milliseconds>(now).time_since_epoch();
+
+							long long now_ms = now_ms_duration.count();
+
+
+							long long diff_ms = std::abs(now_ms - timestamp_ms);
+
+							const long long threshold_ms = 10 * 60 * 1000; // 25 seconds in milliseconds
+							bool is_within_25_seconds = (diff_ms <= threshold_ms);
+							if (is_within_25_seconds) {
+								LOG_INFO("æ–°çš„LOLTFTå¯¹å±€å‡ºç°");
+								break;
+							}
+
+						}
+
+					}
+					std::this_thread::sleep_for(std::chrono::milliseconds(5000));
+				}
+
+
+				std::vector<PathItem> path = {
+				PathItem::makeKey("games"),
+				PathItem::makeIndex(0),
+				PathItem::makeKey("json"),
+				PathItem::makeKey("gameId")
+				};
+				gameId_tft = getNestedValuePlus<size_t>(matchesData, path, -1);
+
+
+
+				//èƒœåˆ©
+
+
+				path = {
+				PathItem::makeKey("games"),
+				PathItem::makeIndex(0),
+				PathItem::makeKey("json"),
+				PathItem::makeKey("participants")
+				};
+				nlohmann::json participants = getNestedValuePlus<nlohmann::json>(matchesData, path, nlohmann::json());
+
+				path = {
+				PathItem::makeKey("games"),
+				PathItem::makeIndex(0),
+				PathItem::makeKey("json"),
+				PathItem::makeKey("game_length")
+				};
+				data["time"] = (int)getNestedValuePlus<double>(matchesData, path, -1.0);
+
+				for (auto& participant : participants) {
+					nlohmann::json member;
+					std::string p_puuid = getNestedValue<std::string>(participant, { "puuid" }, "error");
+					if (puuid == p_puuid) {
+						bool win = getNestedValue<bool>(participant, { "win" }, false);
+						int gold_left = getNestedValue<int>(participant, { "gold_left" }, -1);
+						int last_round = getNestedValue<int>(participant, { "last_round" }, -1);
+						int placement = getNestedValue<int>(participant, { "placement" }, -1);
+						data["ren_tou_shu"] = getNestedValue<int>(participant, { "players_eliminated" }, -1);
+						data["win"] = getNestedValue<bool>(participant, { "win" }, false) == false ? 0 : 1;
+
+						if (sendType == "END") {
+							member["id"] = std::to_string(myAccountId);
+							member["role"] = "self";
+							data["member"].push_back(member);
+
+							if (g_lobbySummonerIds.size() > 1)
+							{
+								for (uint64_t lobby : g_lobbySummonerIds) {
+									if (lobby == myAccountId) {
+										continue;
+									}
+									else {
+										member["id"] = std::to_string(lobby);
+										member["role"] = "team";
+										data["member"].push_back(member);
+									}
+								}
+								//g_lobbySummonerIds.clear();
 							}
 						}
-						//g_lobbySummonerIds.clear();
-					}
-
-				}
-
-
-				for (const auto& participant : game["participants"]) {
-					if (participant["participantId"] == participantId_u64) {
-						data["ren_tou_shu"] = participant["stats"]["kills"];
-						data["zhu_gong_shu"] = participant["stats"]["assists"];
-						// neutralMinionsKilled ×Ö¶Î Ğ¡±ø+Ò°¹Ö.
-						data["bu_bing_shu"] = participant["stats"]["totalMinionsKilled"];
-						data["pai_yan_shu"] = participant["stats"]["wardsKilled"];
-						data["win"] = participant["stats"]["win"] == false ? 0 : 1;
-						//data["time"] = participant["stats"]["assists"];
-							//data["time"] = matchesData["games"]["games"]["gameDuration"];
 						break;
 					}
+
 				}
-				data["time"] = game["gameDuration"];
 				last_is_end = true;
-				g_mtx.lock();
-				//is_lol_running = true;
-				//is_lol_game_running = false;  //×¢ÊÍºó»á³öÏÖÒì³£ÎÊÌâÂğ
-				g_mtx.unlock();
+
+
+				//return true; });
 
 			}
-			else {
 
-			}
+
 
 		}
+		else {
+
+			if (sendType == "END") {
+				std::this_thread::sleep_for(std::chrono::seconds(5));
+				// è¿™ä¸ªæ¥å£æœ¬æ¥å¯ç”¨çš„  ä¸çŸ¥é“åæ¥ä¸ºä»€ä¹ˆå¯¹å±€ç»“æŸåå»¶è¿Ÿå¼€å§‹é•¿äº†èµ·æ¥.
+				//if (httpAuthSend("/lol-match-history/v1/products/lol/current-summoner/matches", matchesData, "?begIndex=0&endIndex=0"))
+				//if (httpAuthSend("/lol-end-of-game/v1/eog-stats-block", matchesData, "?begIndex=0&endIndex=0"))
+				//{
+
+				//	if (matchesData.contains("localPlayer")) {
+				//		matchAccountId_u64 = matchesData["accountId"].get<uint64_t>();
+				//		data["member"] = nlohmann::json::array();
+				//		//jsonBody
+				//		for (const auto& game : matchesData["games"]["games"]) {
+
+				//			matchGameId_u64 = game["gameId"];
+				//			//if (HISTORY_GAMES[matchGameId_u64] == myAccountId && "GameComplete" == game["endOfGameResult"])
+				//			if ("GameComplete" == game["endOfGameResult"]) {
+				//				/*	if (HISTORY_GAMES[matchGameId_u64] == myAccountId)
+				//					{*/
+				//					/*		if (sendType == "END") {
+				//								LOG_INFO("END ç¬¬3ä¸ªif");
+				//							}*/
+				//				for (const auto& participantIdentitie : game["participantIdentities"]) {
+				//					nlohmann::json member;
+				//					uint64_t id;
+				//					id = participantIdentitie["player"]["summonerId"].get<uint64_t>();
+				//					member["id"] = std::to_string(id);
+				//					member["role"] = "other";
+				//					//è¿™é‡Œæœ‰é—®é¢˜ æ¥å£åªèƒ½æŸ¥è¯¢åˆ°è‡ªå·±çš„ä¿¡æ¯==========
+				//		/*			bool isContains = (std::find(lobbySummonerIds.begin(), lobbySummonerIds.end(), member["id"]) != lobbySummonerIds.end());
+				//					if (isContains)
+				//					{
+				//						member["role"] = "team";
+				//					}*/
+				//					//==========================================
+				//					// æ£€æŸ¥ participantId æ˜¯å¦åŒ¹é…
+				//					if (id == matchAccountId_u64) {
+				//						participantId_u64 = participantIdentitie["participantId"].get<uint64_t>();
+				//						member["role"] = "self";
+				//						data["member"].push_back(member);
+				//						//continue;
+				//					}
+				//					if (g_lobbySummonerIds.size() > 1)
+				//					{
+				//						for (uint64_t lobby : g_lobbySummonerIds) {
+				//							if (lobby == id) {
+				//								continue;
+				//							}
+				//							else {
+				//								member["id"] = std::to_string(lobby);
+				//								member["role"] = "team";
+				//								data["member"].push_back(member);
+				//							}
+				//						}
+				//						//g_lobbySummonerIds.clear();
+				//					}
+				//				}
+				//				for (const auto& participant : game["participants"]) {
+				//					if (participant["participantId"] == participantId_u64) {
+				//						data["ren_tou_shu"] = participant["stats"]["kills"];
+				//						data["zhu_gong_shu"] = participant["stats"]["assists"];
+				//						// neutralMinionsKilled å­—æ®µ å°å…µ+é‡æ€ª.
+				//						data["bu_bing_shu"] = participant["stats"]["totalMinionsKilled"];
+				//						data["pai_yan_shu"] = participant["stats"]["wardsKilled"];
+				//						data["win"] = participant["stats"]["win"] == false ? 0 : 1;
+				//						//data["time"] = participant["stats"]["assists"];
+				//							//data["time"] = matchesData["games"]["games"]["gameDuration"];
+				//						break;
+				//					}
+				//				}
+				//				data["time"] = game["gameDuration"];
+				//				last_is_end = true;
+				//				g_mtx.lock();
+				//				//is_lol_running = true;
+				//				//is_lol_game_running = false;  //æ³¨é‡Šåä¼šå‡ºç°å¼‚å¸¸é—®é¢˜å—
+				//				g_mtx.unlock();
+				//			}
+				//			else {
+				//			}
+				//		}
+				//	}
+				//}
+				if (httpAuthSend("/lol-end-of-game/v1/eog-stats-block", matchesData))
+				{
+					matchAccountId_u64 = matchesData["localPlayer"]["summonerId"].get<uint64_t>();
+					data["member"] = nlohmann::json::array();
+					//jsonBody
+					for (const auto& team : matchesData["teams"]) {
+						matchGameId_u64 = matchesData["gameId"];
+						if (HISTORY_GAMES[matchGameId_u64] == myAccountId)
+						{
+							for (const auto& player : team["players"]) {
+								nlohmann::json member;
+								uint64_t id;
+								id = player["summonerId"].get<uint64_t>();
+								member["id"] = std::to_string(id);
+								member["role"] = "other";
+								// ï¿½ï¿½ï¿½ participantId ï¿½Ç·ï¿½Æ¥ï¿½ï¿½
+
+								bool isContains = (std::find(g_lobbySummonerIds.begin(), g_lobbySummonerIds.end(), id) != g_lobbySummonerIds.end());
+								if (isContains)
+								{
+									member["role"] = "team";
+								}
+								if (id == matchAccountId_u64) {
+									participantId_u64 = player["summonerId"].get<uint64_t>();
+									member["role"] = "self";
+									//continue;
+								}
+								data["member"].push_back(member);
+							}
+							//for (const auto& participant : team["participants"]) {
+							if (participantId_u64 == matchAccountId_u64) {
+								data["ren_tou_shu"] = matchesData["localPlayer"]["stats"]["CHAMPIONS_KILLED"];
+								data["zhu_gong_shu"] = matchesData["localPlayer"]["stats"]["ASSISTS"];
+								// NEUTRAL_MINIONS_KILLED ï¿½Ö¶ï¿½ Ğ¡ï¿½ï¿½+Ò°ï¿½ï¿½.
+								data["bu_bing_shu"] = matchesData["localPlayer"]["stats"]["MINIONS_KILLED"];
+								data["pai_yan_shu"] = matchesData["localPlayer"]["stats"]["WARD_KILLED"];
+								data["win"] = matchesData["localPlayer"]["stats"]["WIN"] == false ? 0 : 1;
+								//data["time"] = participant["stats"]["assists"];
+								data["time"] = matchesData["gameLength"];
+								last_is_end = true;
+								break;
+							}
+							//}
+							//data["time"] = team["gameDuration"];
+					
+							g_mtx.lock();
+							//is_lol_running = true;
+							//is_lol_game_running = false;
+							g_mtx.unlock();
+						}
+						else {
+						}
+					}
+				}
+
+
+
+			}
+
+
+
+
+
+		}
+
+
+		std::string region = LOL_regionMap.count(rso_original_platform_id) ?
+			LOL_regionMap[rso_original_platform_id] :
+			"Unknown";
+
+		if (teamSize != 0)
+		{
+			jsonBody["team_size"] = LOL_teamSizeMap[static_cast<int>(teamSize)];  //å¯¹å±€ä¸­æ²¡æœ‰
+		}
+		if (LOL_gameModMap[game_mode] != "")
+		{
+			jsonBody["game_mode"] = LOL_gameModMap[game_mode];					//å¯¹å±€ä¸­æ²¡æœ‰
+		}
+
+		if (gameId != 0) {
+			jsonBody["game_uuid"] = g_hostName+"yhc" + std::to_string(gameId);							//å¯¹å±€ä¸­æœ‰
+		}
+		//LOL_gameMod2RankIndexMap[judeRank]
+		judeRank = ranks[LOL_gameMod2RankIndexMap[game_mode]];
+		jsonBody["name"] = "LOL";													//å›ºå®š
+		jsonBody["user_game_rank"] = LOL_rankAPIMap[judeRank];				//ä¸€ç›´éƒ½æœ‰?
+		jsonBody["type"] = sendType;
+		jsonBody["data"] = data;												//ç»“æŸååŒ¹é…gameidæŸ¥è¯¢
+		jsonBody["remark"] = type;   //remark
+		g_mtx.lock();
+		jsonBody["computer_no"] = g_hostName;
+		if (type != "TFT") {
+			g_infoBefore.update(jsonBody);//å¯¹å±€ä¸­æœ‰
+		}
+		if (sendType == "update") {
+			//LOG_IMMEDIATE(g_infoBefore.dump(4));
+			//g_infoBefore = jsonBody;
+		}
+
+		else if (sendType == "END" && last_is_end) {
+			LOG_IMMEDIATE(" è‹±é›„è”ç›Ÿå¯¹å±€ç»“æŸ?/ æ‰çº¿? / é‡å¼€?");
+			g_infoBefore["event_id"] = "end";
+			jsonBody["event_id"] = "end";
+			if (type == "TFT") {
+				_sendHttp_LOL(jsonBody);
+			}
+			else {
+				_sendHttp_LOL(g_infoBefore);
+			}
+
+			processed_event_ids.clear();
+			g_multkill = 0;
+			g_deaths = 0;
+			g_is_chaoshen = false;
+
+		}
+		g_mtx.unlock();
 	}
-	//}
-	// 
-	// 
-	// 
-	//if (sendType == "END") {
-	//	std::this_thread::sleep_for(std::chrono::seconds(20));
-	//}
-	//bool last_is_end = false;
-	//if (httpAuthSend("/lol-end-of-game/v1/eog-stats-block", matchesData))
-	//{
-	//	matchAccountId_u64 = matchesData["localPlayer"]["summonerId"].get<uint64_t>();
-	//	data["member"] = nlohmann::json::array();
-
-	//	//jsonBody
-	//	for (const auto& team : matchesData["teams"]) {
-	//		matchGameId_u64 = matchesData["gameId"];
-	//		if (HISTORY_GAMES[matchGameId_u64] == myAccountId)
-	//		{
-	//			for (const auto& player : team["players"]) {
-	//				nlohmann::json member;
-	//				uint64_t id;
-	//				id = player["summonerId"].get<uint64_t>();
-	//				member["id"] = std::to_string(id);
-	//				member["role"] = "other";
-	//				// ¼ì²é participantId ÊÇ·ñÆ¥Åä
-	//			
-	//				bool isContains = (std::find(lobbySummonerIds.begin(), lobbySummonerIds.end(), id) != lobbySummonerIds.end());
-	//				if (isContains)
-	//				{
-	//					member["role"] = "team";
-	//				}
-	//				if (id == matchAccountId_u64) {
-	//					participantId_u64 = player["summonerId"].get<uint64_t>();
-	//					member["role"] = "self";
-	//					//continue;
-	//				}
-	//				data["member"].push_back(member);
-	//			}
-
-	//			//for (const auto& participant : team["participants"]) {
-	//			if (participantId_u64 == matchAccountId_u64) {
-	//				data["ren_tou_shu"] = matchesData["localPlayer"]["stats"]["CHAMPIONS_KILLED"];
-	//				data["zhu_gong_shu"] = matchesData["localPlayer"]["stats"]["ASSISTS"];
-	//				// NEUTRAL_MINIONS_KILLED ×Ö¶Î Ğ¡±ø+Ò°¹Ö.
-	//				data["bu_bing_shu"] = matchesData["localPlayer"]["stats"]["MINIONS_KILLED"];
-
-	//				data["pai_yan_shu"] = matchesData["localPlayer"]["stats"]["WARD_KILLED"];
-	//				data["win"] = matchesData["localPlayer"]["stats"]["WIN"] == false ? 0 : 1;
-	//				//data["time"] = participant["stats"]["assists"];
-	//				data["time"] = matchesData["gameLength"];
-	//				break;
-	//			}
-	//			//}
-	//			//data["time"] = team["gameDuration"];
-	//			last_is_end = true;
-	//			g_mtx.lock();
-	//			//is_lol_running = true;
-	//			is_lol_game_running = false;
-	//			g_mtx.unlock();
-	//		}
-	//		else {
-
-	//		}
-
-	//	}
-	//}
 
 
-	// -------------------ranked data
-	nlohmann::json	ranksData;
-	std::string		highestTier;
-	if (httpAuthSend("/lol-ranked/v1/current-ranked-stats", ranksData, ""))
-	{
-		highestTier = ranksData["highestRankedEntrySR"]["highestTier"];
+
+
+	catch (const std::exception& e) {
+		LOG_EXCEPTION_WITH_STACK(e);
+		//LOG_IMMEDIATE("NarakaStateMonitor::OnClientStarted():" + std::string(e.what()));
+		return;
 	}
-
-	std::string region = LOL_regionMap.count(rso_original_platform_id) ?
-		LOL_regionMap[rso_original_platform_id] :
-		"Unknown";
-
-	if (teamSize != 0)
-	{
-		jsonBody["team_size"] = LOL_teamSizeMap[static_cast<int>(teamSize)];  //¶Ô¾ÖÖĞÃ»ÓĞ
+	catch (...) {
+		LOG_IMMEDIATE("lol_before.cpp::getAndSendInfo:æœªçŸ¥é”™è¯¯");
+		return;
 	}
-	if (LOL_gameModMap[game_mode] != "")
-	{
-		jsonBody["game_mode"] = LOL_gameModMap[game_mode];					//¶Ô¾ÖÖĞÃ»ÓĞ
-	}
-
-	if (gameId != 0) {
-		jsonBody["game_uuid"] = std::to_string(gameId);							//¶Ô¾ÖÖĞÓĞ
-	}
-	jsonBody["name"] = "LOL";													//¹Ì¶¨
-	jsonBody["user_game_rank"] = LOL_rankAPIMap[highestTier];				//Ò»Ö±¶¼ÓĞ?
-	jsonBody["type"] = sendType;
-	jsonBody["data"] = data;												//½áÊøºóÆ¥Åägameid²éÑ¯
-	jsonBody["remark"] = phase;
-	g_mtx.lock();
-	jsonBody["computer_no"] = g_hostName;
-	g_infoBefore.update(jsonBody);//¶Ô¾ÖÖĞÓĞ	
-	if (sendType == "update") {
-		//LOG_IMMEDIATE(g_infoBefore.dump(4));
-		//g_infoBefore = jsonBody;
-	}
-
-	else if (sendType == "END" && last_is_end) {
-		LOG_IMMEDIATE(" Ó¢ĞÛÁªÃË¶Ô¾Ö½áÊø?/ µôÏß? / ÖØ¿ª?");
-		g_infoBefore["event_id"] = "end";
-		_sendHttp_LOL(g_infoBefore);
-		processed_event_ids.clear();
-		g_multkill = 0;
-		g_deaths = 0;
-		g_is_chaoshen = false;
-
-	}
-	g_mtx.unlock();
 }
 
 std::string Game_Before::getUserPass(const std::wstring& command) {
@@ -379,7 +581,7 @@ std::string Game_Before::getUserPass(const std::wstring& command) {
 	SHELLEXECUTEINFOW sei = { 0 };
 	sei.cbSize = sizeof(sei);
 	sei.fMask = SEE_MASK_NOCLOSEPROCESS;
-	sei.lpVerb = L"runas";  // ¹ÜÀíÔ±
+	sei.lpVerb = L"runas";  // ç®¡ç†å‘˜
 	sei.lpFile = L"cmd.exe";
 	sei.lpParameters = cmdLine.c_str();
 	sei.nShow = SW_HIDE;
@@ -388,19 +590,19 @@ std::string Game_Before::getUserPass(const std::wstring& command) {
 		return  "Error: Failed to launch process with admin rights.";
 	}
 
-	// µÈ´ıÃüÁîÖ´ĞĞÍê³É
+	// ç­‰å¾…å‘½ä»¤æ‰§è¡Œå®Œæˆ
 	WaitForSingleObject(sei.hProcess, INFINITE);
 	CloseHandle(sei.hProcess);
 
 	std::string str = ReadTxtFileForceUtf8(L"C:\\output.txt");
 
-	// ¶ÁÈ¡Êä³öÎÄ¼ş
+	// è¯»å–è¾“å‡ºæ–‡ä»¶
 
 	return str;
 }
-bool Game_Before::before_main(std::string sendType) {
+bool Game_Before::before_main(std::string sendType, std::string uuid) {
 	if (Game_Before::getParam()) {
-		Game_Before::getAndSendInfo(sendType);
+		Game_Before::getAndSendInfo(sendType, uuid);
 		return true;
 	}
 	return false;
