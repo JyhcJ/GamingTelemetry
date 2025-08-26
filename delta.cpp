@@ -209,11 +209,10 @@ int main_delta() {
 							})) {
 
 							// 条件满足（token过期或有新战绩）
-							if (token_expired) {
+							if (token_expired && IsProcessRunning(gameName)) {
 								LOG_INFO("WG --> token过期,更新token");
 								refreshToken(gameName);
 								token_expired = false;
-
 							}
 							if (has_new_battle_record) {
 								LOG_INFO("WG --> 三角洲行动新的战绩出现,更新token");
@@ -522,7 +521,6 @@ int main_delta() {
 									_sendHttp(url, sendJson.dump(), ret);
 								}
 								catch (const nlohmann::json::parse_error& e) {
-									LOG_IMMEDIATE_DEBUG("p_responseJson : " + p_responseJson);
 									LOG_IMMEDIATE_DEBUG("p_responseJson 解析失败: " + std::string(e.what()));
 								}
 								catch (const std::exception& e) {
