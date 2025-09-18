@@ -1,0 +1,82 @@
+常规永久模式
+CLASSIC - 经典召唤师峡谷(正常5v5)
+
+NORMAL - 普通匹配
+
+RANKED_SOLO_5x5 - 单排/双排排位
+
+RANKED_FLEX_SR - 灵活组排(5v5)
+
+RANKED_FLEX_TT - 灵活组排(3v3扭曲丛林，已移除)
+
+ARAM - 极地大乱斗
+
+ARAM_UNRANKED_5x5 - 普通大乱斗
+
+TUTORIAL - 教程模式
+
+特殊轮换模式(限时开放)
+URF - 无限火力
+
+URF - 经典无限火力
+
+ARURF - 全随机无限火力
+
+NEXUS_BLITZ - 极限闪击
+
+ONEFORALL - 无限乱斗(所有人相同英雄)
+
+ASCENSION - 飞升模式
+
+NEMESIS - 复仇之矛模式(为对手选择英雄)
+
+HEXAKILL - 六杀模式(6v6)
+
+DOOMBOTS - 末日人机
+
+PROJECT - PROJECT:超限模式
+
+ODYSSEY - 奥德赛:淬炼模式
+
+STAR_GUARDIAN - 星之守护者模式
+
+DARKSTAR - 暗星模式
+
+BLOODMOON - 血月杀
+
+CLASH - 冠军杯赛(特殊赛事模式)
+
+TFT - 云顶之弈(自走棋模式)
+
+TFT - 普通云顶
+
+TFT_RANKED - 排位云顶
+
+TFT_HYPERROLL - 狂暴模式
+
+ARENA - 2v2v2v2竞技场模式(新增)
+
+已移除的经典模式
+DOMINION - 统治战场(水晶之痕，已移除)
+
+TWISTED_TREELINE - 扭曲丛林3v3(已移除)
+
+KING_PORO - 魄罗王模式
+
+
+
+| 状态值                 | 描述               |
+| ------------------- | ---------------- |
+| `None`              | 无状态，客户端刚启动或未登录   |
+| `Lobby`             | 在大厅中（组队、准备中）     |
+| `Matchmaking`       | 匹配中（排位/匹配/极地大乱斗） |
+| `ReadyCheck`        | 匹配成功，等待接受        |
+| `ChampSelect`       | 选人阶段（包括BP）       |
+| `GameStart`         | 游戏即将启动（loading前） |
+| `Loading`           | 正在加载游戏           |
+| `InProgress`        | 游戏进行中（正在玩）       |
+| `Reconnect`         | 游戏掉线，客户端准备重连     |
+| `WaitingForStats`   | 游戏结束，等待统计结果      |
+| `PreEndOfGame`      | 客户端显示结算前过渡阶段     |
+| `EndOfGame`         | 游戏结算画面           |
+| `TerminatedInError` | 游戏被异常终止或崩溃       |

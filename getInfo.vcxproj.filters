@@ -1,0 +1,165 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup>
+    <Filter Include="源文件">
+      <UniqueIdentifier>{4FC737F1-C7A5-4376-A066-2A32D752A2FF}</UniqueIdentifier>
+      <Extensions>cpp;c;cc;cxx;c++;cppm;ixx;def;odl;idl;hpj;bat;asm;asmx</Extensions>
+    </Filter>
+    <Filter Include="头文件">
+      <UniqueIdentifier>{93995380-89BD-4b04-88EB-625FBE52EBFB}</UniqueIdentifier>
+      <Extensions>h;hh;hpp;hxx;h++;hm;inl;inc;ipp;xsd</Extensions>
+    </Filter>
+    <Filter Include="资源文件">
+      <UniqueIdentifier>{67DA6AB6-F800-4c08-8B7A-83BB121AAD01}</UniqueIdentifier>
+      <Extensions>rc;ico;cur;bmp;dlg;rc2;rct;bin;rgs;gif;jpg;jpeg;jpe;resx;tiff;tif;png;wav;mfcribbon-ms</Extensions>
+    </Filter>
+    <Filter Include="源文件\py">
+      <UniqueIdentifier>{9cf82741-542d-4172-8078-6cb80abef81f}</UniqueIdentifier>
+    </Filter>
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="framework.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="pch.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="lol.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="monitor.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="common.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="HttpClient.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="ThreadWrapper.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="ThreadSafeLogger.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="lol_before.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="constant.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="DebugTryCatch.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="LoLStateMonitor.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="dllmain.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="CurlUtils.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="cs2.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="nloJson.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="val.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="ValStateMonitor.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="ProcessMemoryReader.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="pubg_name.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="pubg.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="NarakaStateMonitor.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="Naraka.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="delta.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+  </ItemGroup>
+  <ItemGroup>
+    <ClCompile Include="dllmain.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="pch.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="lol.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="monitor.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="common.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="http.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="HttpClient.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="ThreadWrapper.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="ThreadSafeLogger.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="lol_before.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="test.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="LoLStateMonitor.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="CurlUtils.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="cs2.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="val.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="ValStateMonitor.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="pubg.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="pubg_name.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="constant.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="Naraka.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="NarakaStateMonitor.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="Delta.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+  </ItemGroup>
+  <ItemGroup>
+    <Text Include="gametype.txt" />
+  </ItemGroup>
+</Project>
