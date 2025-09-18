@@ -70,6 +70,8 @@ std::string getComputerName();
 
 std::map<std::wstring, std::wstring> getHeader();
 
+std::map<std::wstring, std::wstring> getHeaderMD5(std::string jsonDump);
+
 std::string GetWGPath_REG();
 
 std::string GetPath_REG(HKEY first, const WCHAR* reg, const WCHAR* name);

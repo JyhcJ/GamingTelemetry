@@ -12,7 +12,8 @@
 //本地调试线下配置(如果要强制线下,要关闭从barclient中获取域名)
 const std::wstring IS_DEBUG = L"dev-";
 const std::wstring domain_ = L"https://" + IS_DEBUG + L"asz.cjmofang.com";
-const std::wstring token测试 = L"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJSZW1vdGVJcCI6IiIsIkxvY2FsTG9naW4iOjAsIkNvbnRleHQiOnsidXNlcl9pZCI6MjgyLCJ1c2VyX25hbWUiOiLnvZfmlofotoXmsojkuq4iLCJ1dWlkIjoiIiwicmlkIjoxOCwibWFudWZhY3R1cmVfaWQiOjUzLCJiYXJfaWQiOjk4LCJyb290X2lkIjowLCJvcmdhbml6YXRpb25fdHlwZSI6IiIsInBsYXRmb3JtIjoiYmFyY2xpZW50In0sImV4cCI6MTc1NTEzNTcwM30.jmZHp3LxsAibkpChPOBpAy0bIy0rWB8IbVcflwT8_d4";
+const std::wstring token测试 = L"LeyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJSZW1vdGVJcCI6IiIsIkxvY2FsTG9naW4iOjAsIkNvbnRleHQiOnsidXNlcl9pZCI6MjQ3LCJ1c2VyX25hbWUiOiJ4eHgiLCJ1dWlkIjoiIiwicmlkIjoxOCwibWFudWZhY3R1cmVfaWQiOjUzLCJiYXJfaWQiOjk4LCJyb290X2lkIjowLCJvcmdhbml6YXRpb25fdHlwZSI6IiIsInBsYXRmb3JtIjoiYmFyY2xpZW50In0sImV4cCI6MTc1NzU3NzA2OX0.wNOt1tyWfZ3bjDb79RIvgupDvwq4Mlx3xzq1SK4mM8k";
+
 
 extern std::wstring g_domain;
 extern std::mutex g_domain_mutex;
@@ -248,32 +249,49 @@ static std::map<int,int> NARAKA_teamSize = {
 
 static std::map<int, std::string> DELTA_rankMap = {
 	{1, "QING_TONG"},
-	{2, "QING_TONG"},
-	{3, "QING_TONG"},
-	{4, "BAI_YIN"},
-	{5, "BAI_YIN"},
-	{6, "BAI_YIN"},
-	{7, "HUANG_JIN"},
-	{8, "HUANG_JIN"},
-	{9, "HUANG_JIN"},
-	{10, "HUANG_JIN"},
-	{11, "BO_JIN"},
-	{12, "BO_JIN"},
-	{13, "BO_JIN"},
-	{14, "BO_JIN"},
-	{15, "ZUAN_SHI"},
-	{16, "ZUAN_SHI"},
-	{17, "ZUAN_SHI"},
-	{18, "ZUAN_SHI"},
-	{19, "ZUAN_SHI"},
-	{20, "HEI_YING"},
-	{21, "HEI_YING"},
-	{22, "HEI_YING"},
-	{23, "HEI_YING"},
-	{24, "HEI_YING"},
-	{25, "SAN_JIAO_ZHOU_DIAN_FEN"},
+
+	{2, "BAI_YIN"},
+
+	{3, "HUANG_JIN"},
+
+	{4, "BO_JIN"},
+
+	{5, "ZUAN_SHI"},
+
+	{6, "HEI_YING"},
+
+	{7, "SAN_JIAO_ZHOU_DIAN_FEN"},
+
 	{0, "UNLIMIT"},
 };
+//static std::map<int, std::string> DELTA_rankMap = {
+//	{1, "QING_TONG"},
+//	{2, "QING_TONG"},
+//	{3, "QING_TONG"},
+//	{4, "BAI_YIN"},
+//	{5, "BAI_YIN"},
+//	{6, "BAI_YIN"},
+//	{7, "HUANG_JIN"},
+//	{8, "HUANG_JIN"},
+//	{9, "HUANG_JIN"},
+//	{10, "HUANG_JIN"},
+//	{11, "BO_JIN"},
+//	{12, "BO_JIN"},
+//	{13, "BO_JIN"},
+//	{14, "BO_JIN"},
+//	{15, "ZUAN_SHI"},
+//	{16, "ZUAN_SHI"},
+//	{17, "ZUAN_SHI"},
+//	{18, "ZUAN_SHI"},
+//	{19, "ZUAN_SHI"},
+//	{20, "HEI_YING"},
+//	{21, "HEI_YING"},
+//	{22, "HEI_YING"},
+//	{23, "HEI_YING"},
+//	{24, "HEI_YING"},
+//	{25, "SAN_JIAO_ZHOU_DIAN_FEN"},
+//	{0, "UNLIMIT"},
+//};
 
 
 //BOMB=普通模式,DEATHMATCH=乱斗模式,GUN_GAME=武装升级,ONE_FOR_ALL=克隆模式,QUICK_BOMB=爆能快攻,SNOWBALL_FIGHT=雪球大战,SWIFTPLAY=极速模式,HURM=团队乱斗,CUSTOM=自定义,RANK=竞技模式

@@ -21,7 +21,8 @@ std::atomic<bool> has_new_battle_record{ false };
 std::atomic<bool> token_expired{ false };
 std::atomic<bool> isUpdating{ false };
 
-
+std::chrono::steady_clock::time_point last_refresh_time;
+const std::chrono::minutes MIN_REFRESH_INTERVAL(45);
 
 
 
@@ -39,17 +40,27 @@ void set_g_wgHeader(const std::string& wgHeader) {
 
 int refreshToken(std::wstring processName) {
 	try {
+		auto now = std::chrono::steady_clock::now();
+		if (now - last_refresh_time < MIN_REFRESH_INTERVAL) {
+			LOG_DEBUG("刷新间隔太短，跳过");
+			return -1;
+		}
+		last_refresh_time = now;
+	
+
 		isUpdating = true;
 		const char* exePath = "\".\\build\\pkg\\pythonEmbed\\pythonw.exe\" dumpMain.pyw";
 		std::thread([processName]() {
 			std::wstring temp = stringTOwstring(GetWGPath_REG());
 			//std::wstring temp = L"O:\\网络游戏\\WeGame顺网专版\\wegame.exe";
+
+
 			std::this_thread::sleep_for(std::chrono::seconds(4));
 			WGRefresh(temp, L"/StartFor=2001715");
 			std::this_thread::sleep_for(std::chrono::seconds(3));
 			WGRefresh(temp, L"/StartFor=2001918");
 
-			// 最小化 wegame
+			// 最小化wegame
 			//std::wstring wgProcess = L"wegame.exe";  // 对象在作用域内
 			//MinimizeWeGameWindow(wgProcess);
 			// 最大化游戏窗口
@@ -102,7 +113,7 @@ int refreshToken(std::wstring processName) {
 		}
 
 		std::this_thread::sleep_for(std::chrono::seconds(5));
- 		nlohmann::json p_header;
+		nlohmann::json p_header;
 		//nlohmann::json p_responseJson;
 
 		for (auto& flow : data) {
@@ -122,7 +133,7 @@ int refreshToken(std::wstring processName) {
 			// 打印 headers
 			//std::cout << "Headers:\n";
 			//std::string cookies = request["headers"]["cookie"];
-			std::string cookies = getNestedValue<std::string>(request, { "headers" ,"cookie"},"error");
+			std::string cookies = getNestedValue<std::string>(request, { "headers" ,"cookie" }, "error");
 			if (cookies == "error") {
 				cookies = getNestedValue<std::string>(request, { "headers" ,"Cookie" }, "error");
 			}
@@ -134,9 +145,9 @@ int refreshToken(std::wstring processName) {
 			request["headers"]["cookie"] = cookies;
 			// 输出结果
 			std::cout << "Updated Cookie:\n" << cookies << std::endl;
-		/*	for (auto it = request["headers"].begin(); it != request["headers"].end(); ++it) {
-				std::cout << "  " << it.key() << ": " << it.value() << "\n";
-			}*/
+			/*	for (auto it = request["headers"].begin(); it != request["headers"].end(); ++it) {
+					std::cout << "  " << it.key() << ": " << it.value() << "\n";
+				}*/
 
 			p_header = request["headers"];
 			//analysisStr = p_header.dump();
@@ -203,37 +214,48 @@ int main_delta() {
 				std::thread([gameName]() {
 					while (IsProcessRunning(gameName)) {
 						std::unique_lock<std::mutex> lock(mtx);
-						// 等待条件变量通知或超时
-						if (cv.wait_for(lock, std::chrono::minutes(45), [] {
-							return token_expired.load() || has_new_battle_record.load();
-							})) {
+						auto time_since_last_event = std::chrono::steady_clock::now() - last_event_time;
+						auto time_remaining = std::chrono::minutes(45) - time_since_last_event;
+						// 如果还有剩余时间才等待，否则立即更新token
+						if (time_remaining > std::chrono::seconds(0)) {
+							if (cv.wait_for(lock, time_remaining, [] {
+								return token_expired.load() || has_new_battle_record.load();
+								})) {
+								// 条件满足（token过期或有新战绩）
+								if (token_expired && IsProcessRunning(gameName)) {
+									LOG_INFO("WG --> token过期,更新token");
+									refreshToken(gameName);
+									token_expired = false;
+								}
+								if (has_new_battle_record) {
+									LOG_INFO("WG --> 三角洲行动新的战绩出现,更新token");
+									refreshToken(gameName);
+									has_new_battle_record = false;
+								}
 
-							// 条件满足（token过期或有新战绩）
-							if (token_expired && IsProcessRunning(gameName)) {
-								LOG_INFO("WG --> token过期,更新token");
-								refreshToken(gameName);
-								token_expired = false;
+								last_event_time = std::chrono::steady_clock::now();
 							}
-							if (has_new_battle_record) {
-								LOG_INFO("WG --> 三角洲行动新的战绩出现,更新token");
-								refreshToken(gameName);
-								has_new_battle_record = false; // 重置状态
+							else {
+								if (IsProcessRunning(gameName)) {
+									LOG_INFO("WG --> 45分钟周期到达,更新token");
+									refreshToken(gameName);
+									last_event_time = std::chrono::steady_clock::now();
+								}
 							}
 						}
 						else {
-							// 45分钟超时，没有token过期也没有新战绩
-							LOG_INFO("WG -->  45分钟超时,更新token");
-							refreshToken(gameName);
+
+							if (IsProcessRunning(gameName)) {
+								LOG_INFO("WG --> 已超过45分钟,立即更新token");
+								refreshToken(gameName);
+								last_event_time = std::chrono::steady_clock::now();
+							}
 						}
-						// 重置计时器
-						last_event_time = std::chrono::steady_clock::now();
 					}
 
 					}).detach();
 
 				std::thread([&]() {
-
-
 					while (IsProcessRunning(gameName)) {
 						if (!isUpdating) {
 
@@ -243,12 +265,12 @@ int main_delta() {
 							}
 							std::this_thread::sleep_for(std::chrono::seconds(30));
 							nlohmann::json p_header;
-							try{
+							try {
 								p_header = nlohmann::json::parse(get_g_wgHeader());
 							}
 							catch (const std::exception& e) {
 								LOG_EXCEPTION_WITH_STACK(e);
-							
+
 							}
 							catch (...) {
 								LOG_IMMEDIATE("delta.cpp::main_delta::未知错误");
@@ -306,11 +328,11 @@ int main_delta() {
 
 									p_responseJson = nlohmann::json::parse(response_json);
 									std::string openid = getNestedValue <std::string>(p_responseJson, { "role_info","openid" }, "error");
-								
-									std::string name =  getNestedValue <std::string>(p_responseJson, { "role_info","name" }, "error");
-									std::string nameUTF8 ;
-								
-									LOG_IMMEDIATE("delta:check-->" + SecondEncoding2UTF8(name, nameUTF8));
+
+									std::string name = getNestedValue <std::string>(p_responseJson, { "role_info","name" }, "error");
+									std::string nameUTF8;
+
+									LOG_DEBUG("delta:check-->" + SecondEncoding2UTF8(name, nameUTF8));
 									//LOG_IMMEDIATE(utf8ToUnicodeEscape(name));
 									p_body = {
 									{"from_src", "df_web"},
@@ -327,7 +349,7 @@ int main_delta() {
 										p_body.dump()
 									);
 									//LOG_IMMEDIATE(UTF8ToGBK(response_json));
-						
+
 									p_responseJson = nlohmann::json::parse(SecondEncoding2UTF8(response_json, realUTF8));
 									int sol_rank = getNestedValue <int>(p_responseJson, { "season","stats","ranklevel" }, -1);
 									int tdm_rank = getNestedValue <int>(p_responseJson, { "season","stats","tdmRanklevel" }, -1);
@@ -356,7 +378,7 @@ int main_delta() {
 									if (tdm_count > init_count[1]) {
 										LOG_INFO("新的全面战场对局产生");
 										queue = "tdm";
-										rank = tdm_count;
+										rank = tdm_rank;
 										init_count[1] += 1;
 									}
 
@@ -406,7 +428,7 @@ int main_delta() {
 											sendJson["event_id"] = "yhc2" + GenerateUUID();
 											sendJson["game_mode"] = queue == "sol" ? "FENG_HUO_DI_DAI" : "QUAN_MIAN_ZHAN_CHANG";
 											sendJson["team_size"] = "";
-											sendJson["user_game_rank"] = mapLookupOrDefault(DELTA_rankMap, rank - 1);
+											sendJson["user_game_rank"] = mapLookupOrDefault(DELTA_rankMap, rank);
 											sendJson["type"] = "END";
 											sendJson["data"]["ren_tou_shu"] = getNestedValue <int>(battle, { "killPlayer" }, -1);
 											sendJson["data"]["gold"] = getNestedValue <int>(battle, { "gainedPrice" }, -1);
@@ -472,7 +494,7 @@ int main_delta() {
 											//sendJson["Data"]["gold"] = getNestedValue <int>(battle, { "gainedPrice" }, -1);
 											sendJson["data"]["win"] = getNestedValue <int>(battle, { "isWinner" }, -1);
 											sendJson["data"]["time"] = getNestedValue <int>(battle, { "gameTime" }, -1);
-									
+
 											member["id"] = nameUTF8;
 											member["role"] = "self";
 											sendJson["data"]["member"].push_back(member);
@@ -503,7 +525,7 @@ int main_delta() {
 									);
 									//LOG_IMMEDIATE(UTF8ToGBK(response_json));
 									p_responseJson = nlohmann::json::parse(response_json);
-									nlohmann::json players = getNestedValue <nlohmann::json>(p_responseJson, { "battle_detail",queue+"_players"}, nlohmann::json());
+									nlohmann::json players = getNestedValue <nlohmann::json>(p_responseJson, { "battle_detail",queue + "_players" }, nlohmann::json());
 									for (auto& player : players) {
 										if (playerId == getNestedValue <std::string>(player, { "playerId" }, "error")) {
 											continue;
@@ -516,7 +538,7 @@ int main_delta() {
 											member["role"] = "other";
 											sendJson["data"]["member"].push_back(member);
 										}
-	
+
 									}
 									_sendHttp(url, sendJson.dump(), ret);
 								}
@@ -536,7 +558,7 @@ int main_delta() {
 							}
 						}
 
-						
+
 					}
 					}).detach();
 

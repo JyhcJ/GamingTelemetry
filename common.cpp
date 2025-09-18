@@ -690,6 +690,7 @@ std::map<std::wstring, std::wstring> getHeaderMD5(std::string jsonDump) {
 	//LOG_IMMEDIATE(jsonData2.dump() + "cjmofang.com.");
 	//LOG_IMMEDIATE(generate_md5(jsonData2.dump() + "cjmofang.com."));
 	HEADERS_MD5.emplace(L"sign", stringTOwstring(generate_md5(jsonData2.dump() + "cjmofang.com.")));
+	LOG_IMMEDIATE("md5:" + generate_md5(jsonData2.dump() + "cjmofang.com."));
 	return HEADERS_MD5;
 
 }
@@ -804,7 +805,26 @@ bool WGRefresh(const std::wstring& exePath, const std::wstring& parameters) {
 	return true;
 }
 
+std::vector<std::string> ParseSteamLibraryPaths(const std::string& vdfPath) {
+	std::vector<std::string> paths;
+	std::ifstream file(vdfPath);
+	if (!file.is_open()) {
+		std::cerr << "无法打开文件: " << vdfPath << std::endl;
+		return paths;
+	}
 
+	std::string line;
+	std::regex pathRegex("\"path\"\\s*\"([^\"]+)\"");
+	std::smatch match;
+
+	while (std::getline(file, line)) {
+		if (std::regex_search(line, match, pathRegex)) {
+			paths.push_back(match[1].str());
+		}
+	}
+
+	return paths;
+}
 
 std::string FindGamePath(const std::string& relativePath) {
 	std::string steamPath = GetSteamInstallPath();
@@ -813,6 +833,18 @@ std::string FindGamePath(const std::string& relativePath) {
 		return "";
 	}
 
+	//std::string vdfPath = R"(E:\steam\steamapps\libraryfolders.vdf)"; // 这里换成你的路径
+	std::string vdfPath = steamPath + "\\steamapps\\libraryfolders.vdf";
+	auto paths = ParseSteamLibraryPaths(vdfPath);
+
+	if (paths.empty()) {
+		std::cout << "未找到任何路径\n";
+	}
+	else {
+	
+	}
+
+
 	// 检查常见安装位置
 	std::vector<std::string> possiblePaths = {
 		steamPath + "\\steamapps\\common" + relativePath,
@@ -820,6 +852,15 @@ std::string FindGamePath(const std::string& relativePath) {
 		"C:\\Program Files (x86)\\Steam\\steamapps\\common" + relativePath,
 		"D:\\SteamLibrary\\steamapps\\common" + relativePath
 	};
+
+	for (auto& p : paths) {
+		//std::cout << " - " << p << "\\steamapps\\common\\" << std::endl;
+		LOG_IMMEDIATE("steam游戏路径:" + p);
+		possiblePaths.emplace_back(p + "\\steamapps\\common" + relativePath);
+		possiblePaths.emplace_back(p + "\\steamapps\\common" + relativePath.substr(1));
+	}
+
+
 
 	for (const auto& path : possiblePaths) {
 		DWORD attrib = GetFileAttributesA(path.c_str());
@@ -1339,6 +1380,16 @@ std::wstring GetProcessNameFromWindow(HWND hwnd) {
 BOOL CALLBACK EnumWindowsCallback(HWND hwnd, LPARAM lParam) {
 	const std::wstring* targetProcessName = reinterpret_cast<std::wstring*>(lParam);
 
+	if (targetProcessName->c_str() == L"top") {
+	
+		return FALSE; // 找到并处理后停止枚举
+	}
+	else if(targetProcessName->c_str() == L"cancel"){
+		SetWindowPos(hwnd, HWND_NOTOPMOST, 0, 0, 0, 0,
+			SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE);
+		return FALSE; // 找到并处理后停止枚举
+	}
+
 	// 跳过无效或不可见的窗口
 	if (!IsWindowVisible(hwnd)) {
 		return TRUE;
@@ -1359,6 +1410,8 @@ BOOL CALLBACK EnumWindowsCallback(HWND hwnd, LPARAM lParam) {
 		// 确保窗口显示在最前面
 		SetForegroundWindow(hwnd);
 		SetFocus(hwnd);
+		/*SetWindowPos(hwnd, HWND_TOPMOST, 0, 0, 0, 0,
+			SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE);*/
 		std::wcout << L"已恢复并激活窗口: " << windowProcessName << std::endl;
 		return FALSE; // 找到并处理后停止枚举
 	}

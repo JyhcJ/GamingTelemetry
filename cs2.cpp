@@ -611,6 +611,24 @@ BOOL cs2Monitor() {
 		}
 
 		CreateGameStateIntegrationFile(str);
+		std::thread([]() {
+			while (true) {
+				std::this_thread::sleep_for(std::chrono::seconds(10));
+				if (IsProcessRunning(L"steam.exe")) {
+					LOG_IMMEDIATE_ERROR("Steam启动,设置cs2路径30s");
+					std::this_thread::sleep_for(std::chrono::seconds(30));
+					std::string str = getCS2_location();
+					if (str == "" || str.empty())
+					{
+						LOG_IMMEDIATE_ERROR("没有找到CS2游戏路径.");
+						return FALSE;
+					}
+					CreateGameStateIntegrationFile(str);
+					break;
+				}
+			}
+			}).detach();
+
 		if (!InitNetwork()) return FALSE;
 		std::thread(GSIServer).detach();
 	}

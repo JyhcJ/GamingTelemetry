@@ -110,10 +110,6 @@ private:
 		return out;
 	}
 
-
-
-	bool httpAuthSend(std::string endUrl,  nlohmann::json& responseJson, std::string param ="");
-
 	std::string extractParamValue(const std::string& commandLine, const std::string& paramName) {
 		// 查找参数名的位置
 		size_t paramPos = commandLine.find(paramName);
@@ -146,11 +142,13 @@ private:
 
 	std::string getUserPass(const std::wstring& command);
 
+	bool httpAuthSend(const std::string& endUrl, nlohmann::json& responseJson,  std::string param ="");
+
 
 public:
 	bool getParam();
-	void getAndSendInfo(std::string sendType ,std::string uuid = "");
-
-	bool before_main(std::string sendType, std::string uuid = "");
-
+	bool processTftEndGameData(nlohmann::json& data, const uint64_t& puuid);
+	bool processNormalEndGameData(nlohmann::json& data, uint64_t myAccountId);
+	void getAndSendInfo(const std::string& sendType, const std::string& uuid);
+	bool before_main(const std::string& sendType,  std::string uuid ="");
 };

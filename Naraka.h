@@ -212,6 +212,7 @@ public:
 	bool isInit = true;
 	std::unique_ptr<GameMonitor> gameMonitor;
 	std::unique_ptr<PlayerDataManager> playerData;
+
 	//std::map<std::wstring, std::wstring> m_header = {
 	//	{L":method",L"GET"},
 	//	{L":authority", L"record.uu.163.com"},
@@ -231,6 +232,7 @@ public:
 	//	{L"cookie", L"session=2gYhJUz6USFQV5Lx3iG7q1XktvCHWmzMJT_QepHr"},
 	//	{L"priority", L"u=1, i"}
 	//};
+	std::string session;
 
 	std::map<std::string, std::string> m_headers = {
 		  {"sec-ch-ua-platform", "\"Windows\""},
@@ -244,17 +246,42 @@ public:
 		  {"referer", "https://record.uu.163.com/naraka/"},
 		  {"accept-encoding", "gzip, deflate, br, zstd"},
 		  {"accept-language", "zh-CN,zh;q=0.9"},
-		  {"cookie", "session=2gYhJUz6USFQV5Lx3iG7q1XktvCHWmzMJT_QepHr"},
+		  {"cookie", "session="+ session},
 		  {"priority", "u=1, i"}
 	};
 	NarakaStatsTracker()
 		:gameMonitor(std::make_unique<GameMonitor>()),
 		playerData(std::make_unique<PlayerDataManager>()) {
+
+		//std::string session = "2gYhJUz6USFQV5Lx3iG7q1XktvCHWmzMJT_QepHr";
+		//try {
+		//	std::string ret;
+		//	_sendHttp(L"/api/client/GetGameConfig", "", ret);
+		//	nlohmann::json jsonData1 = nlohmann::json::parse(ret);
+		//	nlohmann::json jsonData2 = nlohmann::json::parse(remove_escape_chars(trim_quotes(jsonData1["metadata"]["value"].dump())));
+		//	//LOG_IMMEDIATE("取到的value: " + jsonData1["metadata"]["value"].dump());
+		//	//LOG_IMMEDIATE("去除首尾value: " + remove_escape_chars(trim_quotes(jsonData1["metadata"]["value"].dump())));
+		//	LOG_IMMEDIATE(jsonData2.dump() + "cjmofang.com.");
+		//	session = jsonData2["yongjiewujian"]["token"];
+		//	if (session == "") {
+		//		session = "L2DgCvsWBq2p3df9J0U2fvqq4PhPDO4qAbBnkdTZ";
+		//	}
+		//	//LOG_IMMEDIATE(generate_md5(jsonData2.dump() + "cjmofang.com."));
+		//}
+		//catch (const std::exception& e) {
+		//	LOG_IMMEDIATE("NarakaStateMonitor::OnClientStarted():" + std::string(e.what()));
+		//	return;
+		//}
+		//catch (...) {
+		//	LOG_IMMEDIATE("NarakaStateMonitor::OnClientStarted():未知错误");
+		//	return;
+		//}
+
+
 	}
 
 	bool initialize(const std::string& playerNameFile) {
 		// 1. 读取玩家名称
-
 		std::string playerName;
 		if (!playerData->readPlayerNameFromFile(playerNameFile, playerName)) {
 			std::cerr << "Failed to read player name from file." << std::endl;
@@ -266,6 +293,8 @@ public:
 		//	std::cerr << "Failed to fetch initial stats." << std::endl;
 		//	return false;
 		//}
+			
+
 
 		return true;
 	}
@@ -289,14 +318,14 @@ public:
 		}
 	}
 
-	bool checkNew(std::string playerName, bool isInit) {
+	bool checkNew(std::string playerName, bool isInit, std::map<std::string, std::string> p_headers) {
 		// 获取初始战绩列表并填充排除列表
 		CurlUtils::setVerifySSL(false);
 		std::string str;
 		std::string room_id;
 		try {
 			nlohmann::json response;
-
+			m_headers = p_headers;
 			std::string url = "https://record.uu.163.com/api/login/status";
 			auto response1 = CurlUtils::get(url, m_headers);
 			//失败可能返回是空  不确定
@@ -344,6 +373,7 @@ public:
 					//long long secondsElapsed = static_cast<long long>(currentTimestamp - begin_time);
 					//LOG_IMMEDIATE("Naraka:It has been " + std::to_string(secondsElapsed) + " seconds since the last game.");
 				 //   if (secondsElapsed > 60 * 25) {}
+				
 					playerData->addToExclusionList(room_id);
 					return false;
 				}

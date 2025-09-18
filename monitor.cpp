@@ -120,11 +120,11 @@ int main() {
 
 	LOG_INFO("天下谁与争锋!!!");
 	//std::string str = "{\"juediqiusheng\":{\"offset\":[283363440,24,1232,0],\"type\":\"module\",\"value\":\"TslGame.exe\"},\"yongjiewujian\":{\"token\":\"2gYhJUz6USFQV5Lx3iG7q1XktvCHWmzMJT_QepHr\"}}";
+	//std::string str = "{\"juediqiusheng\":{\"offset\":[283363440,24,1232,0],\"type\":\"module\",\"value\":\"TslGame.exe\"},\"yongjiewujian\":{\"token\":\"L2DgCvsWBq2p3df9J0U2fvqq4PhPDO4qAbBnkdTZ\"}}";
 	//nlohmann::json jsonData = nlohmann::json::parse(str);
 	//LOG_IMMEDIATE("真实:        " + jsonData.dump());
 	//LOG_IMMEDIATE(jsonData.dump() + "cjmofang.com.");
 	//LOG_IMMEDIATE(generate_md5(jsonData.dump() + "cjmofang.com."));
-
 	try {
 
 

@@ -34,10 +34,10 @@ void ValStateMonitor::OnMatchStarted() {
 	LOG_IMMEDIATE("VAL开始\n");
 	_sendHttp_Val("RUN", "");
 
-	//TODO 
-	startTempProxy();
-	// 查战绩
-	getValinfo2send();
+	////TODO 
+	//startTempProxy();
+	//// 查战绩
+	//getValinfo2send();
 
 
 	try {
@@ -73,6 +73,10 @@ void ValStateMonitor::OnWegameLogin() {
 	// 代理7秒 登录后10秒内?
 	LOG_IMMEDIATE(" WEGAME登录后\n");
 	wgPath = stringTOwstring( GetWGPath_REG());
+	GetPath_REG(
+		HKEY_CURRENT_USER,
+		L"SOFTWARE\\Tencent\\valorant.live",
+		L"InstallLocation");
 	//injectDLL(L"notepad.exe", L"getInfo.dll");
 	//injectDLL(L"wegame.exe", L"wgHelper.dll");
 	//startTempProxy();
