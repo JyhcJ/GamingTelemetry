@@ -36,6 +36,10 @@
 #pragma comment(lib, "crypt32.lib")
 #pragma comment(lib, "comsuppw.lib")
 
+
+extern bool is_lol_running;
+extern std::mutex g_mtx;
+
 class Game_Before {
 private:
 	HttpClient http;
@@ -44,6 +48,8 @@ private:
 	std::string auth_token;
 	std::string rso_platform_id;
 	std::string rso_original_platform_id;
+
+    
 
 	std::string wstring2string(const std::wstring& ws) {
 		_bstr_t t = ws.c_str();
@@ -81,36 +87,7 @@ private:
 
 		return result;
 	}
-	std::map<std::string, std::string> region_map = {
-		{"HN1", "艾欧尼亚"},
-		{"HN2", "祖安"},
-		{"HN3", "诺克萨斯"},
-		{"HN4", "班德尔城"},
-		{"HN5", "皮尔特沃夫"},
-		{"HN6", "战争学院"},
-		{"HN7", "巨神峰"},
-		{"HN8", "雷瑟守备"},
-		{"HN9", "裁决之地"},
-		{"HN10", "黑色玫瑰"},
-		{"HN11", "暗影岛"},
-		{"HN12", "钢铁烈阳"},
-		{"HN13", "水晶之痕"},
-		{"HN14", "均衡教派"},
-		{"HN15", "影流"},
-		{"HN16", "守望之海"},
-		{"HN17", "征服之海"},
-		{"HN18", "卡拉曼达"},
-		{"HN19", "皮城警备"},
-		{"WT1_NEW", "比尔吉沃特"},
-		{"WT2_NEW", "德玛西亚"},
-		{"WT3_NEW", "弗雷尔卓德"},
-		{"WT4_NEW", "无畏先锋"},
-		{"WT5", "恕瑞玛"},
-		{"WT6", "扭曲丛林"},
-		{"WT7", "巨龙之巢"},
-		{"EDU1", "教育网专区"},
-		{"BGP1", "男爵领域"}
-	};
+	
 
 	std::string base64_encode(const std::string& in) {
 		std::string out;
@@ -132,12 +109,6 @@ private:
 		out.resize(len - 1);
 		return out;
 	}
-
-	bool getParam();
-
-	void getUserInfo();
-
-public:
 
 	std::string extractParamValue(const std::string& commandLine, const std::string& paramName) {
 		// 查找参数名的位置
@@ -167,33 +138,17 @@ public:
 		return value;
 	}
 
-	std::string ExecuteCommandAsAdmin(const std::wstring& command) {
-		std::wstring tempFile = L"C:\\output.txt";
-		std::wstring cmdLine = L"/c " + command + L" > \"" + tempFile + L"\"";
 
-		SHELLEXECUTEINFOW sei = { 0 };
-		sei.cbSize = sizeof(sei);
-		sei.fMask = SEE_MASK_NOCLOSEPROCESS;
-		sei.lpVerb = L"runas";  // 管理员
-		sei.lpFile = L"cmd.exe";
-		sei.lpParameters = cmdLine.c_str();
-		sei.nShow = SW_HIDE;
 
-		if (!ShellExecuteExW(&sei)) {
-			return  "Error: Failed to launch process with admin rights.";
-		}
+	std::string getUserPass(const std::wstring& command);
 
-		// 等待命令执行完成
-		WaitForSingleObject(sei.hProcess, INFINITE);
-		CloseHandle(sei.hProcess);
+	bool httpAuthSend(const std::string& endUrl, nlohmann::json& responseJson,  std::string param ="");
 
-		std::string str = ReadTxtFileForceUtf8(L"C:\\output.txt");
 
-		// 读取输出文件
-
-		return str;
-	}
-
-	bool before_main();
-
+public:
+	bool getParam();
+	bool processTftEndGameData(nlohmann::json& data, const uint64_t& puuid);
+	bool processNormalEndGameData(nlohmann::json& data, uint64_t myAccountId);
+	void getAndSendInfo(const std::string& sendType, const std::string& uuid);
+	bool before_main(const std::string& sendType,  std::string uuid ="");
 };

@@ -13,6 +13,9 @@
       <UniqueIdentifier>{67DA6AB6-F800-4c08-8B7A-83BB121AAD01}</UniqueIdentifier>
       <Extensions>rc;ico;cur;bmp;dlg;rc2;rct;bin;rgs;gif;jpg;jpeg;jpe;resx;tiff;tif;png;wav;mfcribbon-ms</Extensions>
     </Filter>
+    <Filter Include="源文件\py">
+      <UniqueIdentifier>{9cf82741-542d-4172-8078-6cb80abef81f}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="framework.h">
@@ -40,6 +43,51 @@
       <Filter>头文件</Filter>
     </ClInclude>
     <ClInclude Include="lol_before.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="constant.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="DebugTryCatch.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="LoLStateMonitor.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="dllmain.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="CurlUtils.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="cs2.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="nloJson.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="val.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="ValStateMonitor.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="ProcessMemoryReader.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="pubg_name.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="pubg.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="NarakaStateMonitor.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="Naraka.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="delta.h">
       <Filter>头文件</Filter>
     </ClInclude>
   </ItemGroup>
@@ -77,7 +125,37 @@
     <ClCompile Include="test.cpp">
       <Filter>源文件</Filter>
     </ClCompile>
-    <ClCompile Include="lol_after.cpp">
+    <ClCompile Include="LoLStateMonitor.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="CurlUtils.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="cs2.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="val.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="ValStateMonitor.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="pubg.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="pubg_name.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="constant.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="Naraka.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="NarakaStateMonitor.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="Delta.cpp">
       <Filter>源文件</Filter>
     </ClCompile>
   </ItemGroup>

@@ -3,7 +3,7 @@ Microsoft Visual Studio Solution File, Format Version 12.00
 # Visual Studio Version 17
 VisualStudioVersion = 17.14.35821.62
 MinimumVisualStudioVersion = 10.0.40219.1
-Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "getInfo", "getInfo.vcxproj", "{92149486-2C5F-427A-88C7-901FEE8E810C}"
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "GamingTelemetry", "getInfo.vcxproj", "{92149486-2C5F-427A-88C7-901FEE8E810C}"
 EndProject
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "ConsoleApplication1", "..\ConsoleApplication1\ConsoleApplication1.vcxproj", "{C5042EDA-34EE-4347-A153-CA4542EDF53D}"
 EndProject

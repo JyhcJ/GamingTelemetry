@@ -37,17 +37,17 @@ public:
 	ThreadState GetState() const;
 
 	// 线程安全日志输出
-	void Log(const std::string& message);
+	//void Log(const std::string& message);
 
 private:
 	std::thread m_thread;                // 线程对象
 	std::atomic<ThreadState> m_state;    // 线程状态（原子操作）
 	std::function<void()> m_threadFunc;  // 线程执行函数
 
-	// 线程安全日志队列
-	std::queue<std::string> m_logQueue;
-	std::mutex m_logMutex;
-	std::condition_variable m_logCV;
+	//// 线程安全日志队列
+	//std::queue<std::string> m_logQueue;
+	//std::mutex m_logMutex;
+	//std::condition_variable m_logCV;
 
 	// 内部线程执行函数
 	void ThreadMain();

@@ -11,48 +11,34 @@
 #include "lol.h"
 #include "ThreadWrapper.h"
 #include "ThreadSafeLogger.h"
+#include "lol_before.h"
+#include "LoLStateMonitor.h"
+#include "cs2.h"
+#include "ProcessMemoryReader.h"
+#include "pubg.h"
+#include "ValStateMonitor.h"
+#include "NarakaStateMonitor.h"
+#include "delta.h"
 
-extern bool lol_running;
+
+bool is_lol_running = false;
 
 // 配置部分
 const std::wstring LOL_PROCESS_NAME = L"LeagueClient.exe";
 const std::wstring LOL_GAME_PROCESS_NAME = L"League of Legends.exe";
-const int CHECK_INTERVAL_MS = 5000; // 检查间隔5秒
+const int CHECK_INTERVAL_MS = 5000;
 
 // 全局变量
-std::chrono::system_clock::time_point lol_start_time;
-bool is_lol_running = false;
+
+std::vector<std::thread> g_monitorThreads;
+std::atomic<bool> g_shouldExit{ false };
+std::atomic<bool> g_isRunning{ false };
+HANDLE g_mainThread = NULL;
+DWORD g_mainThreadId = 0;
+
 bool is_lol_game_running = false;
-double total_lol_time = 0.0;
+std::string g_hostName;
 
-// 检查指定进程是否在运行
-bool IsProcessRunning(const std::wstring& processName) {
-	HANDLE hSnapshot = CreateToolhelp32Snapshot(TH32CS_SNAPPROCESS, 0);
-	if (hSnapshot == INVALID_HANDLE_VALUE) {
-		return false;
-	}
-
-	PROCESSENTRY32W pe32;
-	pe32.dwSize = sizeof(PROCESSENTRY32W);
-
-	if (!Process32FirstW(hSnapshot, &pe32)) {
-		CloseHandle(hSnapshot);
-		return false;
-	}
-
-	bool found = false;
-	do {
-		if (std::wstring(pe32.szExeFile) == processName) {
-			found = true;
-			break;
-		}
-	} while (Process32NextW(hSnapshot, &pe32));
-
-	CloseHandle(hSnapshot);
-	return found;
-}
-
-// 获取当前时间字符串
 std::string GetCurrentTimeString() {
 	auto now = std::chrono::system_clock::now();
 	auto in_time_t = std::chrono::system_clock::to_time_t(now);
@@ -64,107 +50,220 @@ std::string GetCurrentTimeString() {
 	return std::string(buffer);
 }
 
+DWORD GetPidByName(const std::wstring& processName) {
+	PROCESSENTRY32W pe32;
+	pe32.dwSize = sizeof(PROCESSENTRY32W);
 
-
-// 主监控函数
-void MonitorGameProcess() {
-	while (true) {
-		bool currently_running = IsProcessRunning(LOL_PROCESS_NAME);
-		bool currently_game_running = IsProcessRunning(LOL_GAME_PROCESS_NAME);
-
-		if (currently_running && !is_lol_running) {
-			// 英雄联盟刚启动
-			lol_start_time = std::chrono::system_clock::now();
-			is_lol_running = true;
-			LOG_IMMEDIATE(" 英雄联盟已启动\n");
-			pollRankNum();
-			_sendHttp_LOL("RUN", "");
-			// 客户端启动后不断更新 段位和队伍人数(队伍人数要测试)
-			// 对局结束后更新连胜并发送(发送总胜利数,连胜数)
-			// 对局中发送信息(段位,队伍人数,对局ID,连杀累杀,对局模式)
-
-		}
-		else if (!currently_running && is_lol_running) {
-			// 英雄联盟客户端关闭
-			auto end_time = std::chrono::system_clock::now();
-			std::chrono::duration<double> elapsed = end_time - lol_start_time;
-			total_lol_time += elapsed.count();
-			is_lol_running = false;
-
-			int hours = static_cast<int>(elapsed.count() / 3600);
-			int minutes = static_cast<int>(fmod(elapsed.count(), 3600) / 60);
-			int seconds = static_cast<int>(fmod(elapsed.count(), 60));
-
-			//std::cout << "[" << GetCurrentTimeString() << "] 英雄联盟已关闭\n";
-			LOG_IMMEDIATE(" 英雄联盟已关闭\n");
-			_sendHttp_LOL("KILL", "");
-			// LOG_IMMEDIATE(std::string("本次游戏时长") + std::to_string(hours));
-			// 如果需要上传时间
-			std::cout << "本次游戏时长: "
-				<< hours << "小时 "
-				<< minutes << "分钟 "
-				<< seconds << "秒\n";
-			std::cout << "累计游戏时长: "
-				<< static_cast<int>(total_lol_time / 3600) << "小时 "
-				<< static_cast<int>(fmod(total_lol_time, 3600) / 60) << "分钟\n";
-		}
-		else if (currently_game_running && !is_lol_game_running) {
-			// 英雄联盟对局开始
-			LOG_IMMEDIATE(" 英雄联盟对局已启动,开始监视对局信息\n");
-			is_lol_game_running = true;
-			pollEvents();
-
-			//ThreadWrapper thread(pollEvents);
-			//// 启动线程
-			//thread.Start();
-		
-		}
-		else if (!currently_game_running && is_lol_game_running) {
-			is_lol_game_running = false;
-
-			LOG_IMMEDIATE(" 英雄联盟对局结束?/ 掉线? / 重开?\n");
-
-			//构建data , 查询对局ID是否结束
-			_sendHttp_LOL("END", "");
-			// TODO 查询对局ID是否结束
-
-
-		}
-
-		// 检查其他游戏是否运行 
-		// if (IsProcessRunning(L"无畏契约?CSGO?绝地求生")) {
-		//     std::cout << "检测到其他游戏正在运行\n";
-		// }
-
-		std::this_thread::sleep_for(std::chrono::milliseconds(CHECK_INTERVAL_MS));
-	}
-}
-
-int main() {
-	LOG_IMMEDIATE("DLL监视程序已启动");
-
-	try {
-		ThreadWrapper thread(MonitorGameProcess);
-
-		//// 启动线程
-		thread.Start();
-		std::this_thread::sleep_for(std::chrono::seconds(1));
-		thread.Detach();
-
-		//MonitorGameProcess();
-	}
-	catch (const std::exception& e) {
-		//std::cerr << "发生错误: " << e.what() << std::endl;
-		 //(e.what());
-		LOG_ERROR(e.what());
-		return 1;;
+	HANDLE hSnapshot = CreateToolhelp32Snapshot(TH32CS_SNAPPROCESS, 0);
+	if (hSnapshot == INVALID_HANDLE_VALUE) {
+		return 0;
 	}
 
+	if (Process32FirstW(hSnapshot, &pe32)) {
+		do {
+			if (_wcsicmp(pe32.szExeFile, processName.c_str()) == 0) {
+				CloseHandle(hSnapshot);
+				return pe32.th32ProcessID;
+			}
+		} while (Process32NextW(hSnapshot, &pe32));
+	}
+
+	CloseHandle(hSnapshot);
 	return 0;
 }
 
+double GetProcessUptime(DWORD pid) {
+	HANDLE hProcess = OpenProcess(PROCESS_QUERY_INFORMATION | PROCESS_VM_READ, FALSE, pid);
+	if (hProcess == NULL) {
+		return -1.0;
+	}
 
-// 监视入口
+	FILETIME createTime, exitTime, kernelTime, userTime;
+	if (!GetProcessTimes(hProcess, &createTime, &exitTime, &kernelTime, &userTime)) {
+		CloseHandle(hProcess);
+		return -1.0;
+	}
+
+	CloseHandle(hProcess);
+
+	ULARGE_INTEGER uliCreateTime;
+	uliCreateTime.LowPart = createTime.dwLowDateTime;
+	uliCreateTime.HighPart = createTime.dwHighDateTime;
+
+	SYSTEMTIME currentSysTime;
+	GetSystemTime(&currentSysTime);
+	FILETIME currentFileTime;
+	SystemTimeToFileTime(&currentSysTime, &currentFileTime);
+	ULARGE_INTEGER uliCurrentTime;
+	uliCurrentTime.LowPart = currentFileTime.dwLowDateTime;
+	uliCurrentTime.HighPart = currentFileTime.dwHighDateTime;
+
+	return (uliCurrentTime.QuadPart - uliCreateTime.QuadPart) / 1e7;
+}
+
+int main() {
+
+	_CrtSetReportMode(_CRT_ERROR, _CRTDBG_MODE_DEBUG);  // 将错误输出到调试器而非弹窗
+	_CrtSetReportHook([](int reportType, char* msg, int* retVal) {
+		OutputDebugStringA(msg);  // 重定向到调试输出
+		*retVal = 1;  // 抑制默认弹窗
+		return TRUE;
+		});
+
+
+
+
+	// 设置日志输出到文件
+	ThreadSafeLogger::GetInstance().SetOutputFile("monitorDLL.log");
+#ifdef _DEBUG
+	ThreadSafeLogger::GetInstance().SetMinLogLevel(LogLevel::DEBUG1);
+	LOG_IMMEDIATE("Debug模式");
+#else
+	ThreadSafeLogger::GetInstance().SetMinLogLevel(LogLevel::INFO);
+	LOG_IMMEDIATE("Release模式");
+#endif
+
+	// 记录主线程信息
+	g_mainThread = GetCurrentThread();
+	g_mainThreadId = GetCurrentThreadId();
+	g_shouldExit = false;
+	g_isRunning = true;
+
+
+	LOG_IMMEDIATE("DLL监视程序已启动");
+
+	g_hostName = WStringToString(GetComputerNameWString());
+
+	LOG_INFO("天下谁与争锋!!!");
+	//std::string str = "{\"juediqiusheng\":{\"offset\":[283363440,24,1232,0],\"type\":\"module\",\"value\":\"TslGame.exe\"},\"yongjiewujian\":{\"token\":\"2gYhJUz6USFQV5Lx3iG7q1XktvCHWmzMJT_QepHr\"}}";
+	//std::string str = "{\"juediqiusheng\":{\"offset\":[283363440,24,1232,0],\"type\":\"module\",\"value\":\"TslGame.exe\"},\"yongjiewujian\":{\"token\":\"L2DgCvsWBq2p3df9J0U2fvqq4PhPDO4qAbBnkdTZ\"}}";
+	//nlohmann::json jsonData = nlohmann::json::parse(str);
+	//LOG_IMMEDIATE("真实:        " + jsonData.dump());
+	//LOG_IMMEDIATE(jsonData.dump() + "cjmofang.com.");
+	//LOG_IMMEDIATE(generate_md5(jsonData.dump() + "cjmofang.com."));
+	try {
+
+		std::thread delta_thread([]() {
+			main_delta();
+			});
+		if (delta_thread.joinable()) {
+				g_monitorThreads.push_back(std::move(delta_thread));
+		}
+
+		//启动绝地求生监控
+		std::thread pubg_thread([]() {
+	
+			ProcessMonitor_PUBG monitor_pubg;
+			monitor_pubg.start();
+			});
+		if (pubg_thread.joinable()) {
+			g_monitorThreads.push_back(std::move(pubg_thread));
+		}
+
+
+		// 永劫无间监控线程
+		std::thread naraka_thread([]() {
+			NarakaStateMonitor monitor_naraka;
+			monitor_naraka.MonitorLoop();
+			});
+		if (naraka_thread.joinable()) {
+			g_monitorThreads.push_back(std::move(naraka_thread));
+		}
+
+		// 无畏契约监控线程
+		std::thread val_thread([]() {
+			ValStateMonitor monitor_val;
+			monitor_val.MonitorLoop();
+			});
+		if (val_thread.joinable()) {
+			g_monitorThreads.push_back(std::move(val_thread));
+		}
+
+		// CS2监控
+		std::thread cs2_thread([]() {
+			cs2Monitor();
+			});
+		if (cs2_thread.joinable()) {
+			g_monitorThreads.push_back(std::move(cs2_thread));
+		}
+
+		// 英雄联盟监控线程
+		std::thread lol_thread([]() {
+			LoLStateMonitor monitor;
+			monitor.MonitorLoop();
+			});
+		if (lol_thread.joinable()) {
+			g_monitorThreads.push_back(std::move(lol_thread));
+		}
+
+		// 主循环
+		while (!g_shouldExit) {
+			std::this_thread::sleep_for(std::chrono::milliseconds(100));
+			//exitMonitor();
+		}
+
+		// 等待所有线程结束（设置超时）
+		for (auto& thread : g_monitorThreads) {
+			if (thread.joinable()) {
+				// 使用超时等待，避免无限阻塞
+				// 注意：std::thread没有内置超时机制，这里仅示意
+				// 实际应用中可能需要使用其他同步机制
+			}
+		}
+		//g_monitorThreads.clear();
+	}
+	catch (const std::exception& e) {
+		LOG_EXCEPTION_WITH_STACK(e);
+		g_isRunning = false;
+		return 1;
+	}
+	catch (...) {
+		LOG_IMMEDIATE_ERROR("main :::Unknown exception occurred");
+		g_isRunning = false;
+	}
+	g_isRunning = false;
+	return 0;
+}
+
 extern "C" __declspec(dllexport) const int monitorLOL() {
 	return main();
+}
+extern "C" __declspec(dllexport) const int monitorLOL1(int index) {
+	if (index == 2) {
+		set_g_domain(L"asz.cjmofang.com");
+	}
+	else {
+		set_g_domain(L"dev-asz.cjmofang.com");
+	}
+	LOG_IMMEDIATE("初始化g_domain: " + WStringToString(get_g_domain()));
+	return main();
+}
+
+extern "C" __declspec(dllexport) const void exitMonitor() {
+	// 设置退出标志
+	g_shouldExit = true;
+
+	// 给线程一些时间正常退出
+	std::this_thread::sleep_for(std::chrono::milliseconds(500));
+
+	// 强制终止所有创建的线程
+	for (auto& thread : g_monitorThreads) {
+		if (thread.joinable()) {
+			// 获取线程native handle并强制终止
+			// 注意：C++ std::thread不直接支持TerminateThread
+			// 需要使用Windows API
+		}
+	}
+
+	// 清理线程容器
+	//g_monitorThreads.clear();
+
+	// 如果有其他需要清理的资源，在这里添加
+
+	// 重置状态
+	g_isRunning = false;
+
+	// 确保日志被刷新
+	ThreadSafeLogger::GetInstance().Flush();
+	return;
 }

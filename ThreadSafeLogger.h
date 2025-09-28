@@ -39,8 +39,12 @@ public:
 	// 停止日志线程（如果运行）
 	void Stop();
 
+	// 新增的方法(分段)
+	void TestThreadSafety(int testDurationSeconds = 5);
+
 	// 日志接口宏（简化调用）
 #define LOG_DEBUG(msg)    ThreadSafeLogger::GetInstance().Log(LogLevel::DEBUG1, msg)
+#define LOG_IMMEDIATE_DEBUG(msg)    ThreadSafeLogger::GetInstance().LogImmediate(LogLevel::DEBUG1, msg)
 #define LOG_INFO(msg)     ThreadSafeLogger::GetInstance().Log(LogLevel::INFO, msg)
 #define LOG_IMMEDIATE(msg)     ThreadSafeLogger::GetInstance().LogImmediate(LogLevel::INFO, msg)
 #define LOG_IMMEDIATE_WARNING(msg)     ThreadSafeLogger::GetInstance().LogImmediate(LogLevel::WARNING, msg)
@@ -73,6 +77,12 @@ private:
 	std::condition_variable m_queueCV;           // 队列条件变量
 	std::atomic<bool> m_running;                 // 日志线程运行标志
 	std::unique_ptr<std::thread> m_logThread;    // 日志线程
+
+	// 新增成员(分段)
+	std::chrono::system_clock::time_point m_lastRotationTime;
+	std::string m_currentLogFilePath;
+	void RotateLogFileIfNeeded();
+	static std::string GenerateTimestampedFilename(const std::string& basePath);
 };
 
 std::string LogGetCurrentTimeString();

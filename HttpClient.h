@@ -1,10 +1,8 @@
 #pragma once
-#pragma once
 #include <windows.h>
 #include <winhttp.h>
 #include <string>
 #include <map>
-#include <vector>
 
 #pragma comment(lib, "winhttp.lib")
 
@@ -24,9 +22,13 @@ public:
 		const std::wstring& method,               // "GET" 或 "POST"
 		const std::map<std::wstring, std::wstring>& headers,  // 请求头
 		const std::string& body = "",               // 请求体（POST用）
-		bool userPass = false
+		bool userPass = false,
+		const std::wstring&  addPath = L""
 	);
 
+	std::string SendRequest(const std::wstring& url, const std::wstring& method, const std::string& headersJsonStr, const std::string& body, bool userPass = false, const std::wstring& pathAdd = L"");
+
+	
 private:
 	HINTERNET m_hSession;  // WinHTTP会话句柄
 
